@@ -1,0 +1,143 @@
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/gini/!svn/ver/64/stable/backend/include/wgini
+END
+energy.h
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/gini/!svn/ver/64/stable/backend/include/wgini/energy.h
+END
+awgn.h
+K 25
+svn:wc:ra_dav:version-url
+V 53
+/gini/!svn/ver/64/stable/backend/include/wgini/awgn.h
+END
+nomac.h
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/gini/!svn/ver/64/stable/backend/include/wgini/nomac.h
+END
+stats.h
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/gini/!svn/ver/64/stable/backend/include/wgini/stats.h
+END
+mac.h
+K 25
+svn:wc:ra_dav:version-url
+V 52
+/gini/!svn/ver/64/stable/backend/include/wgini/mac.h
+END
+wcard.h
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/gini/!svn/ver/64/stable/backend/include/wgini/wcard.h
+END
+vpl.h
+K 25
+svn:wc:ra_dav:version-url
+V 52
+/gini/!svn/ver/64/stable/backend/include/wgini/vpl.h
+END
+cli.h
+K 25
+svn:wc:ra_dav:version-url
+V 52
+/gini/!svn/ver/64/stable/backend/include/wgini/cli.h
+END
+channel.h
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/gini/!svn/ver/64/stable/backend/include/wgini/channel.h
+END
+errmodel.h
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/gini/!svn/ver/64/stable/backend/include/wgini/errmodel.h
+END
+llc.h
+K 25
+svn:wc:ra_dav:version-url
+V 52
+/gini/!svn/ver/64/stable/backend/include/wgini/llc.h
+END
+802_11.h
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/gini/!svn/ver/64/stable/backend/include/wgini/802_11.h
+END
+gwcenter.h
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/gini/!svn/ver/64/stable/backend/include/wgini/gwcenter.h
+END
+wirelessphy.h
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/gini/!svn/ver/64/stable/backend/include/wgini/wirelessphy.h
+END
+mathlib.h
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/gini/!svn/ver/64/stable/backend/include/wgini/mathlib.h
+END
+timer.h
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/gini/!svn/ver/64/stable/backend/include/wgini/timer.h
+END
+event.h
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/gini/!svn/ver/64/stable/backend/include/wgini/event.h
+END
+csma.h
+K 25
+svn:wc:ra_dav:version-url
+V 53
+/gini/!svn/ver/64/stable/backend/include/wgini/csma.h
+END
+propagation.h
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/gini/!svn/ver/64/stable/backend/include/wgini/propagation.h
+END
+antenna.h
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/gini/!svn/ver/64/stable/backend/include/wgini/antenna.h
+END
+802_11_frame.h
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/gini/!svn/ver/64/stable/backend/include/wgini/802_11_frame.h
+END
+mobility.h
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/gini/!svn/ver/64/stable/backend/include/wgini/mobility.h
+END
+fading.h
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/gini/!svn/ver/64/stable/backend/include/wgini/fading.h
+END

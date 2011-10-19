@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 39
+/gini/!svn/ver/90/stable/backend/kernel
+END
+glinux
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/gini/!svn/ver/64/stable/backend/kernel/glinux
+END
+SConscript
+K 25
+svn:wc:ra_dav:version-url
+V 50
+/gini/!svn/ver/64/stable/backend/kernel/SConscript
+END
+linux-2.6.26.1
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/gini/!svn/ver/64/stable/backend/kernel/linux-2.6.26.1
+END

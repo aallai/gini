@@ -1,0 +1,58 @@
+UML_1:(-608.000000,-488.000000)
+	filesystem:root_fs_beta2
+	Name:UML_1
+	filetype:cow
+		interface:Router_2
+			subnet:192.168.1.0
+			mac:
+			ipv4:
+			mask:255.255.255.0
+UML_2:(-7.000000,-183.000000)
+	filesystem:root_fs_beta2
+	Name:UML_2
+	filetype:cow
+		interface:Router_3
+			ipv4:
+			mac:
+Subnet_1:(-428.000000,-482.000000)
+	mask:255.255.255.0
+	subnet:192.168.1.0
+	Name:Subnet_1
+Subnet_2:(-281.000000,-259.000000)
+	mask:255.255.255.0
+	subnet:192.168.2.0
+	Name:Subnet_2
+Router_2:(-536.000000,-360.000000)
+	Name:Router_2
+		interface:UML_1
+			subnet:192.168.1.0
+			mac:
+			ipv4:
+			mask:255.255.255.0
+		interface:Router_3
+			ipv4:
+			mac:
+Router_3:(-275.000000,-349.000000)
+	Name:Router_3
+		interface:Router_2
+			ipv4:
+			mac:
+		interface:UML_2
+			ipv4:
+			mac:
+Subnet_3:(-434.000000,-340.000000)
+	mask:255.255.255.0
+	subnet:192.168.3.0
+	Name:Subnet_3
+edge:(UML_1,Subnet_1)
+	Name:SomeEdge
+edge:(Subnet_2,UML_2)
+	Name:SomeEdge
+edge:(Subnet_1,Router_2)
+	Name:SomeEdge
+edge:(Router_2,Subnet_3)
+	Name:SomeEdge
+edge:(Subnet_3,Router_3)
+	Name:SomeEdge
+edge:(Subnet_2,Router_3)
+	Name:SomeEdge

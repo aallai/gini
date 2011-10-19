@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gloader SYSTEM "etc/gloader.dtd">
+<gloader>
+
+<vr name="Router_2">
+	<netif>
+		<target>UML_1</target>
+		<network>192.168.1.0</network>
+		<nic>fe:fd:03:02:00:01</nic>
+		<ip>192.168.1.129</ip>
+		<rtentry netmask="255.255.255.0" nexthop="0.0.0.0">192.168.1.0</rtentry>
+	</netif>
+	<netif>
+		<target>Router_3</target>
+		<network>192.168.3.0</network>
+		<nic>fe:fd:03:02:00:02</nic>
+		<ip>192.168.3.129</ip>
+		<rtentry netmask="255.255.255.0" nexthop="192.168.3.130">192.168.2.0</rtentry>
+		<rtentry netmask="255.255.255.0" nexthop="0.0.0.0">192.168.3.0</rtentry>
+	</netif>
+</vr>
+
+<vr name="Router_3">
+	<netif>
+		<target>Router_2</target>
+		<network>192.168.3.0</network>
+		<nic>fe:fd:03:03:00:01</nic>
+		<ip>192.168.3.130</ip>
+		<rtentry netmask="255.255.255.0" nexthop="192.168.3.129">192.168.1.0</rtentry>
+		<rtentry netmask="255.255.255.0" nexthop="0.0.0.0">192.168.3.0</rtentry>
+	</netif>
+	<netif>
+		<target>UML_2</target>
+		<network>192.168.2.0</network>
+		<nic>fe:fd:03:03:00:02</nic>
+		<ip>192.168.2.130</ip>
+		<rtentry netmask="255.255.255.0" nexthop="0.0.0.0">192.168.2.0</rtentry>
+	</netif>
+</vr>
+
+<vm name="UML_1">
+	<filesystem type="cow">root_fs_beta2</filesystem>
+	<if>
+		<target>Router_2</target>
+		<network>192.168.1.0</network>
+		<mac>fe:fd:02:00:00:01</mac>
+		<ip>192.168.1.2</ip>
+		<route type="net" netmask="255.255.255.0" gw="192.168.1.129">192.168.2.0</route>
+		<route type="net" netmask="255.255.255.0" gw="192.168.1.129">192.168.3.0</route>
+	</if>
+</vm>
+
+<vm name="UML_2">
+	<filesystem type="cow">root_fs_beta2</filesystem>
+	<if>
+		<target>Router_3</target>
+		<network>192.168.2.0</network>
+		<mac>fe:fd:02:00:00:02</mac>
+		<ip>192.168.2.3</ip>
+		<route type="net" netmask="255.255.255.0" gw="192.168.2.130">192.168.1.0</route>
+		<route type="net" netmask="255.255.255.0" gw="192.168.2.130">192.168.3.0</route>
+	</if>
+</vm>
+
+</gloader>

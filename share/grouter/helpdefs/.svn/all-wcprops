@@ -1,0 +1,89 @@
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/gini/!svn/ver/96/stable/backend/include/helpdefs
+END
+if.ps
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/gini/!svn/ver/64/stable/backend/include/helpdefs/if.ps
+END
+ping.hlp
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/gini/!svn/ver/64/stable/backend/include/helpdefs/ping.hlp
+END
+route.hlp
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/gini/!svn/ver/64/stable/backend/include/helpdefs/route.hlp
+END
+get.hlp
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/gini/!svn/ver/64/stable/backend/include/helpdefs/get.hlp
+END
+source.hlp
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/gini/!svn/ver/64/stable/backend/include/helpdefs/source.hlp
+END
+arp.hlp
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/gini/!svn/ver/96/stable/backend/include/helpdefs/arp.hlp
+END
+console.hlp
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/gini/!svn/ver/64/stable/backend/include/helpdefs/console.hlp
+END
+spolicy.hlp
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/gini/!svn/ver/96/stable/backend/include/helpdefs/spolicy.hlp
+END
+qdisc.hlp
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/gini/!svn/ver/96/stable/backend/include/helpdefs/qdisc.hlp
+END
+ifconfig.hlp
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/gini/!svn/ver/64/stable/backend/include/helpdefs/ifconfig.hlp
+END
+queue.hlp
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/gini/!svn/ver/64/stable/backend/include/helpdefs/queue.hlp
+END
+class.hlp
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/gini/!svn/ver/64/stable/backend/include/helpdefs/class.hlp
+END
+filter.hlp
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/gini/!svn/ver/96/stable/backend/include/helpdefs/filter.hlp
+END
+set.hlp
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/gini/!svn/ver/64/stable/backend/include/helpdefs/set.hlp
+END

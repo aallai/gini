@@ -1,0 +1,9 @@
+main:visible=True;geometry=(312,150,815,600)
+tab:visible=True;geometry=(135,63,404,390)
+Task Manager:visible=False;floating=True;location=2;geometry=(0,0,282,272)
+Routes:visible=False;floating=True;location=2;geometry=(0,0,282,272)
+Components:visible=True;floating=False;location=1;geometry=(0,63,129,390)
+Properties:visible=True;floating=False;location=2;geometry=(545,63,270,171)
+Interfaces:visible=True;floating=False;location=2;geometry=(545,240,270,213)
+Log:visible=True;floating=False;location=8;geometry=(0,459,815,114)
+project:

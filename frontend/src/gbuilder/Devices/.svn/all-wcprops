@@ -1,0 +1,77 @@
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/gini/!svn/ver/98/stable/frontend/src/gbuilder/Devices
+END
+Bridge.py
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/Devices/Bridge.py
+END
+UML.py
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/Devices/UML.py
+END
+UML_Android.py
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/Devices/UML_Android.py
+END
+Hub.py
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/Devices/Hub.py
+END
+__init__.py
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/Devices/__init__.py
+END
+Router.py
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/Devices/Router.py
+END
+Subnet.py
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/Devices/Subnet.py
+END
+Switch.py
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/Devices/Switch.py
+END
+UML_FreeDOS.py
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/Devices/UML_FreeDOS.py
+END
+Firewall.py
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/Devices/Firewall.py
+END
+Mobile.py
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/gini/!svn/ver/98/stable/frontend/src/gbuilder/Devices/Mobile.py
+END
+Wireless_access_point.py
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/Devices/Wireless_access_point.py
+END

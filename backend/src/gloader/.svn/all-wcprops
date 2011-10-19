@@ -1,0 +1,89 @@
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/gini/!svn/ver/93/stable/backend/src/gloader
+END
+gdist.py
+K 25
+svn:wc:ra_dav:version-url
+V 53
+/gini/!svn/ver/64/stable/backend/src/gloader/gdist.py
+END
+gini_nw.py
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/gini/!svn/ver/64/stable/backend/src/gloader/gini_nw.py
+END
+gini_components.py
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/gini/!svn/ver/64/stable/backend/src/gloader/gini_components.py
+END
+utilities.py
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/gini/!svn/ver/64/stable/backend/src/gloader/utilities.py
+END
+TaskManager.py
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/gini/!svn/ver/64/stable/backend/src/gloader/TaskManager.py
+END
+gloader.py
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/gini/!svn/ver/64/stable/backend/src/gloader/gloader.py
+END
+gserver.py
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/gini/!svn/ver/93/stable/backend/src/gloader/gserver.py
+END
+xml_processor.py
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/gini/!svn/ver/64/stable/backend/src/gloader/xml_processor.py
+END
+SConscript
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/gini/!svn/ver/90/stable/backend/src/gloader/SConscript
+END
+SConstruct
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/gini/!svn/ver/64/stable/backend/src/gloader/SConstruct
+END
+gloader.dtd
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/gini/!svn/ver/64/stable/backend/src/gloader/gloader.dtd
+END
+starter.py
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/gini/!svn/ver/64/stable/backend/src/gloader/starter.py
+END
+README
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/gini/!svn/ver/64/stable/backend/src/gloader/README
+END
+program.py
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/gini/!svn/ver/64/stable/backend/src/gloader/program.py
+END

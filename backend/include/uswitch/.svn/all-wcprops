@@ -1,0 +1,35 @@
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/gini/!svn/ver/64/stable/backend/include/uswitch
+END
+error.h
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/gini/!svn/ver/64/stable/backend/include/uswitch/error.h
+END
+hash.h
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/gini/!svn/ver/64/stable/backend/include/uswitch/hash.h
+END
+port.h
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/gini/!svn/ver/64/stable/backend/include/uswitch/port.h
+END
+uswitch.h
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/gini/!svn/ver/64/stable/backend/include/uswitch/uswitch.h
+END
+cleanup.h
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/gini/!svn/ver/64/stable/backend/include/uswitch/cleanup.h
+END

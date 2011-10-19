@@ -1,0 +1,17 @@
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/gini/!svn/ver/98/stable/frontend/src/gbuilder
+END
+gbuilder.py
+K 25
+svn:wc:ra_dav:version-url
+V 58
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/gbuilder.py
+END
+SConscript
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/SConscript
+END

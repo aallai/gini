@@ -1,0 +1,41 @@
+K 25
+svn:wc:ra_dav:version-url
+V 32
+/gini/!svn/ver/96/stable/backend
+END
+SconsBuilderDoxygen.py
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/gini/!svn/ver/64/stable/backend/SconsBuilderDoxygen.py
+END
+SconsBuilder.py
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/gini/!svn/ver/96/stable/backend/SconsBuilder.py
+END
+.scb
+K 25
+svn:wc:ra_dav:version-url
+V 37
+/gini/!svn/ver/96/stable/backend/.scb
+END
+SConstruct
+K 25
+svn:wc:ra_dav:version-url
+V 43
+/gini/!svn/ver/90/stable/backend/SConstruct
+END
+SconsBuilderConfig.py
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/gini/!svn/ver/96/stable/backend/SconsBuilderConfig.py
+END
+GINI.scb
+K 25
+svn:wc:ra_dav:version-url
+V 41
+/gini/!svn/ver/64/stable/backend/GINI.scb
+END

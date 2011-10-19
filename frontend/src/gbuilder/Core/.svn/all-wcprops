@@ -1,0 +1,65 @@
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/gini/!svn/ver/93/stable/frontend/src/gbuilder/Core
+END
+subprocess.py
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/Core/subprocess.py
+END
+Compiler.py
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/Core/Compiler.py
+END
+Wireless_Connection.py
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/Core/Wireless_Connection.py
+END
+util.py
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/Core/util.py
+END
+Item.py
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/Core/Item.py
+END
+Connection.py
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/Core/Connection.py
+END
+Device.py
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/Core/Device.py
+END
+__init__.py
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/Core/__init__.py
+END
+globals.py
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/gini/!svn/ver/93/stable/frontend/src/gbuilder/Core/globals.py
+END
+Interfaceable.py
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/Core/Interfaceable.py
+END

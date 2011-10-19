@@ -1,0 +1,17 @@
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/Network
+END
+__init__.py
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/Network/__init__.py
+END
+gclient.py
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/Network/gclient.py
+END

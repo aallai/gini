@@ -1,0 +1,41 @@
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/gini/!svn/ver/64/stable/backend/src/uswitch
+END
+hash.c
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/gini/!svn/ver/64/stable/backend/src/uswitch/hash.c
+END
+port.c
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/gini/!svn/ver/64/stable/backend/src/uswitch/port.c
+END
+SConscript
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/gini/!svn/ver/64/stable/backend/src/uswitch/SConscript
+END
+SConstruct
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/gini/!svn/ver/64/stable/backend/src/uswitch/SConstruct
+END
+uswitch.c
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/gini/!svn/ver/64/stable/backend/src/uswitch/uswitch.c
+END
+cleanup.c
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/gini/!svn/ver/64/stable/backend/src/uswitch/cleanup.c
+END

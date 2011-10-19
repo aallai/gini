@@ -1,0 +1,119 @@
+K 25
+svn:wc:ra_dav:version-url
+V 49
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI
+END
+GraphWindow.py
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI/GraphWindow.py
+END
+DropBar.py
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI/DropBar.py
+END
+Properties.py
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI/Properties.py
+END
+__init__.py
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/UI/__init__.py
+END
+Tutorial.py
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI/Tutorial.py
+END
+Edge.py
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI/Edge.py
+END
+Dockable.py
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/UI/Dockable.py
+END
+SendDirectoryWindow.py
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI/SendDirectoryWindow.py
+END
+Configuration.py
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI/Configuration.py
+END
+LogWindow.py
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI/LogWindow.py
+END
+ExportWindow.py
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI/ExportWindow.py
+END
+TabWidget.py
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/gini/!svn/ver/64/stable/frontend/src/gbuilder/UI/TabWidget.py
+END
+Canvas.py
+K 25
+svn:wc:ra_dav:version-url
+V 59
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI/Canvas.py
+END
+MainWindow.py
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI/MainWindow.py
+END
+Systray.py
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI/Systray.py
+END
+Overlay.py
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI/Overlay.py
+END
+Node.py
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI/Node.py
+END
+TaskManagerWindow.py
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI/TaskManagerWindow.py
+END
+StatsWindow.py
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/gini/!svn/ver/90/stable/frontend/src/gbuilder/UI/StatsWindow.py
+END

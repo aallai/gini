@@ -1,0 +1,17 @@
+K 25
+svn:wc:ra_dav:version-url
+V 35
+/gini/!svn/ver/64/stable/backend/fs
+END
+SConscript
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/gini/!svn/ver/64/stable/backend/fs/SConscript
+END
+GiniLinux-fs-1.0q.gz
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/gini/!svn/ver/64/stable/backend/fs/GiniLinux-fs-1.0q.gz
+END
