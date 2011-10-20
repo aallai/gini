@@ -8,33 +8,81 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-// everything in machine byte order please
-uint16_t cksum(uint32_t src, uint32_t dest, udphdr_t *hdr, uint8_t *data, int data_len){
+uint16_t mychecksum(uint8_t *, int);
 
-	uint16_t word16;
-	uint8_t buf[PHEADER_SIZE + DEFAULT_MTU + 1];  // extra byte for padding
+// changes ip array to int so we can call ntohl on it
+uint32_t ip_atol(uchar ip[4])
+{
+	uint32_t ret = 0;
+	int i;
+	for (i = 0; i < 4; i++) {
+		ret |= (ip[i] & 0xff) << 8 * i; 
+	}
+	return ret;
+}
 
-	buf[0] = src;
-	buf[4] = dest;
-	buf[8] = 0;
+
+// udp header in host byte order please
+uint16_t cksum(ip_packet_t *iphdr, udphdr_t *hdr, uint8_t *data)
+{
+
+	uint8_t buf[PHEADER_SIZE + DEFAULT_MTU + 1] = {0};  // extra byte for padding
+
+
+	((uint32_t *) &buf)[0] = ntohl(ip_atol(iphdr->ip_src));
+	((uint32_t *) &buf)[1] = ntohl(ip_atol(iphdr->ip_dst));
+	buf[8] = 0x0;
 	buf[9] = UDP_PROTOCOL;
-	buf[10] = hdr->len;             // this should be ip_packet_hdr->len - sizeof(ip_packet_hdr)
-	
+	buf[10] = ntohs(iphdr->ip_pkt_len) - ((uint16_t) iphdr->ip_hdr_len) * 4; 
+
+	int data_len = hdr->len - UDP_HEADER_SIZE;
+
 	int i;
 	for (i = 0; i < UDP_HEADER_SIZE; i++) {
-		buf[PHEADER_SIZE + i] = *(((uint8_t *) hdr) + i);
+		buf[PHEADER_SIZE + i] = ((uint8_t *) hdr)[i];
 	}
 
 	for (i = 0; i < data_len; i++) {
-		buf[PHEADER_SIZE + UDP_HEADER_SIZE + i] = *(data + i);
+		buf[PHEADER_SIZE + UDP_HEADER_SIZE + i] = data[i];
 	}	
 
 	if (data_len % 2 != 0) {
-		buf[PHEADER_SIZE + UDP_HEADER_SIZE + data_len] = 0;
+		buf[PHEADER_SIZE + UDP_HEADER_SIZE + data_len] = 0x0;
 		data_len++;		                                                                                  
 	}
 		
-	return (uint16_t) checksum((uchar *)buf, PHEADER_SIZE + UDP_HEADER_SIZE + data_len);
+	//return (uint16_t) checksum((uchar *)buf, PHEADER_SIZE + UDP_HEADER_SIZE + data_len);
+	return mychecksum(buf, PHEADER_SIZE + UDP_HEADER_SIZE + data_len);
+}
+
+uint16_t mychecksum(uint8_t *data, int len)
+{
+	uint32_t sum = 0xffff;
+	uint16_t word;
+
+	
+	int i;
+	for (i = 0; i + 1 < len; i += 2) {
+		memcpy(&word, data + i, 2);
+		sum += ntohs(word);
+
+		if (sum > 0xffff) {
+			sum -= 0xffff;
+		}
+	}
+
+	if (len & 0x1) {
+		word = 0;
+		memcpy(&word, data + len - 1, 1);
+		sum += ntohs(word);
+
+		if (sum > 0xffff) {
+			sum -= 0xffff;
+		}
+	}
+
+
+	return  ntohs(~sum);
 }
 
 // RAPPEL caller les fonctions pour convertir en network byte order ou l'inverse
@@ -63,7 +111,7 @@ int send_udp(uint32_t dest_ip, uint16_t dest_port, uint16_t src_port, char *data
 	
 	uint32_t tmp = getsrcaddr(out_pkt,(uchar *)&dest_ip);
 	// calcul checksum - alex
-	uint16_t checksum = (tmp,dest_ip,hdr,(uint8_t *)data,len);
+	uint16_t checksum = cksum(ipkt,hdr,(uint8_t *)data);
 	if(checksum == 0){
 		checksum = ~checksum;
 	}
@@ -82,31 +130,29 @@ void udp_recv(gpacket_t *packet)
     
     ip_packet_t *ipPacket = (ip_packet_t *) packet->data.data;
     uint16_t ipPacketLength = ntohs(ipPacket->ip_pkt_len);  
-    
-    uint32_t ipSource;
-    uint32_t iPDestination;
    
     // convert header to right byte order 
     udphdr_t *udpHeader = (udphdr_t *)((uint8_t *)ipPacket + ipPacket->ip_hdr_len*4);
     udpHeader->source = ntohs(udpHeader->source);
-    udpHeader->dest = ntohs(udpHeader->source);
+    udpHeader->dest = ntohs(udpHeader->dest);
     udpHeader->len = ntohs(udpHeader->len);
     udpHeader->check = ntohs(udpHeader->check);    
 
     uint8_t *data;
     data = (uint8_t *) udpHeader + UDP_HEADER_SIZE;
-    int dataLength = udpHeader->len - UDP_HEADER_SIZE; 
+    int dataLength = udpHeader->len - UDP_HEADER_SIZE;
     
- 
-    
-    ipSource = ntohl(*((uint32_t *) &ipPacket->ip_src));
-    iPDestination = ntohl(*((uint32_t *) &ipPacket->ip_dst));    
     
     if (udpHeader->check !=0) 
     {
         udpChecksum = udpHeader->check;
+	
+	printf("packet sum - > %u\n", udpChecksum);
+
         udpHeader->check = 0;
-        tempChecksum = cksum(ipSource, iPDestination, udpHeader, data, dataLength);
+        tempChecksum = cksum(ipPacket, udpHeader, data);
+
+	printf("computed sum -> %u\n", tempChecksum);
 
         if (udpChecksum != tempChecksum) 
         {
