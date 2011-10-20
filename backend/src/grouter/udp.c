@@ -8,22 +8,22 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-// faut le udp header au
+// everything in machine byte order please
 uint16_t cksum(uint32_t src, uint32_t dest, udphdr_t *hdr, uint8_t *data, int data_len){
 
 	uint16_t word16;
-	uint8_t buf[PHEADER_SIZE + DEFAULT_MTU];
+	uint8_t buf[PHEADER_SIZE + DEFAULT_MTU + 1];  // extra byte for padding
 
 	buf[0] = src;
 	buf[4] = dest;
 	buf[8] = 0;
 	buf[9] = UDP_PROTOCOL;
-	buf[10] = hdr->len;
+	buf[10] = hdr->len;             // this should be ip_packet_hdr->len - sizeof(ip_packet_hdr)
 	
 	int i;
 	for (i = 0; i < UDP_HEADER_SIZE; i++) {
 		buf[PHEADER_SIZE + i] = *(((uint8_t *) hdr) + i);
-	}	
+	}
 
 	for (i = 0; i < data_len; i++) {
 		buf[PHEADER_SIZE + UDP_HEADER_SIZE + i] = *(data + i);
@@ -33,8 +33,6 @@ uint16_t cksum(uint32_t src, uint32_t dest, udphdr_t *hdr, uint8_t *data, int da
 		buf[PHEADER_SIZE + UDP_HEADER_SIZE + data_len] = 0;
 		data_len++;		                                                                                  
 	}
-
-	
 		
 	return (uint16_t) checksum((uchar *)buf, PHEADER_SIZE + UDP_HEADER_SIZE + data_len);
 }
@@ -87,27 +85,29 @@ void udp_recv(gpacket_t *packet)
     
     uint32_t ipSource;
     uint32_t iPDestination;
-    
+   
+    // convert header to right byte order 
     udphdr_t *udpHeader = (udphdr_t *)((uint8_t *)ipPacket + ipPacket->ip_hdr_len*4);
-    
+    udpHeader->source = ntohs(udpHeader->source);
+    udpHeader->dest = ntohs(udpHeader->source);
+    udpHeader->len = ntohs(udpHeader->len);
+    udpHeader->check = ntohs(udpHeader->check);    
+
     uint8_t *data;
     data = (uint8_t *) udpHeader + UDP_HEADER_SIZE;
     int dataLength = udpHeader->len - UDP_HEADER_SIZE; 
     
-    verbose(1, "rendu icitte");   
  
     
     ipSource = ntohl(*((uint32_t *) &ipPacket->ip_src));
-    iPDestination = ntohl(*((uint32_t *) &ipPacket->ip_dst));
-    
-    
+    iPDestination = ntohl(*((uint32_t *) &ipPacket->ip_dst));    
     
     if (udpHeader->check !=0) 
     {
         udpChecksum = udpHeader->check;
         udpHeader->check = 0;
         tempChecksum = cksum(ipSource, iPDestination, udpHeader, data, dataLength);
-        
+
         if (udpChecksum != tempChecksum) 
         {
 	    verbose(1, "[udp_recv]:: jai domper un packet");
