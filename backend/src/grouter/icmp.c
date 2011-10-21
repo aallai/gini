@@ -188,7 +188,7 @@ void ICMPProcessPortUnreachable(gpacket_t *in_pkt)
 	 * header ...
 	 */
 	icmphdr->type = ICMP_PORT_UNREACH;
-	icmphdr->code = 0; 
+	icmphdr->code = 3; 
 	icmphdr->checksum = 0;
 	bzero((void *)&(icmphdr->un), sizeof(icmphdr->un));
 	memcpy(((uchar *)icmphdr + 8), prevbytes, iprevlen);    /* ip header + 64 bits of original pkt */

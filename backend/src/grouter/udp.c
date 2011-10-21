@@ -129,16 +129,16 @@ void udp_recv(gpacket_t *packet)
     // convert header to right byte order 
     udphdr_t *udpHeader = (udphdr_t *)((uint8_t *)ipPacket + ipPacket->ip_hdr_len*4);
 
-    
+    /*
     udpHeader->source = ntohs(udpHeader->source);
     udpHeader->dest = ntohs(udpHeader->dest);
     udpHeader->len = ntohs(udpHeader->len);
     udpHeader->check = ntohs(udpHeader->check);    
-    
+    */
 
     uint8_t *data;
     data = (uint8_t *) udpHeader + UDP_HEADER_SIZE;
-    int dataLength = udpHeader->len - UDP_HEADER_SIZE;
+    int dataLength = ntohs(udpHeader->len) - UDP_HEADER_SIZE;
  
 /*    
     if (udpHeader->check !=0) 
@@ -160,13 +160,13 @@ void udp_recv(gpacket_t *packet)
     }
 */
 	// verifie que le port est rouvert
-    if (port_open(udpHeader->dest, UDP_PROTOCOL) == 0) 
+    if (port_open(ntohs(udpHeader->dest), UDP_PROTOCOL) == 0) 
     {
-	printf("got packet for unopened port %d\n", udpHeader->dest);
+	printf("got packet for unopened port %d\n", ntohs(udpHeader->dest));
         ICMPProcessPortUnreachable(packet);
         return;
     }
    
 	// donne le data au port layer (write_data(port, proto, buf len)) 
-	write_data(udpHeader->dest,UDP_PROTOCOL,data,dataLength);
+	write_data(ntohs(udpHeader->dest),UDP_PROTOCOL,data,dataLength);
 }
