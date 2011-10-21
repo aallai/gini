@@ -45,7 +45,7 @@ uint16_t udp_cksum(ip_packet_t *iphdr, udphdr_t *hdr, uint8_t *data)
 		data_len++;		                                                                                  
 	}
 	
-	if (checksum((uchar *) buf, PHEADER_SIZE + UDP_HEADER_SIZE + data_len / 2) != mychecksum(buf, PHEADER_SIZE + UDP_HEADER_SIZE + data_len)) {
+	if (checksum((uchar *) buf, (PHEADER_SIZE + UDP_HEADER_SIZE + data_len) / 2) != mychecksum(buf, PHEADER_SIZE + UDP_HEADER_SIZE + data_len)) {
 		printf("puzzle.\n");
 	}
 
@@ -99,6 +99,11 @@ int send_udp(uint8_t dest_ip[4], uint16_t dest_port, uint16_t src_port, char *da
 	
 	// Allocate the gpacket (ip, udphdr)
 	gpacket_t *out_pkt = (gpacket_t *) malloc(sizeof(gpacket_t));
+
+	if (out_pkt == NULL) {
+		return -1;
+	}
+
 	ip_packet_t *ipkt = (ip_packet_t *) out_pkt->data.data;
 	ipkt->ip_hdr_len = 5;
 	ipkt->ip_pkt_len = htons(ipkt->ip_hdr_len * 4 + UDP_HEADER_SIZE + len);
@@ -138,7 +143,7 @@ int send_udp(uint8_t dest_ip[4], uint16_t dest_port, uint16_t src_port, char *da
 
 void udp_recv(gpacket_t *packet)
 {
-	// calcul et verifie checksum
+	// calcul et verfie checksum
     uint16_t udpChecksum;
     uint16_t tempChecksum;
     
