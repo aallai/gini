@@ -22,94 +22,116 @@ uint32_t ip_atol(uchar ip[4])
 }
 
 
-// udp header in host byte order please
-uint16_t cksum(ip_packet_t *iphdr, udphdr_t *hdr, uint8_t *data)
+// everything in network byte order
+uint16_t udp_cksum(ip_packet_t *iphdr, udphdr_t *hdr, uint8_t *data)
 {
-	uint16_t word;
 	uint8_t buf[PHEADER_SIZE + DEFAULT_MTU + 1] = {0};  // extra byte for padding
 
-
-	memcpy(buf, &iphdr->ip_src, 4);
-	memcpy(buf + 4, &iphdr->ip_dst, 4);
+	// pseudo hdr
+	memcpy(buf, iphdr->ip_src, 4);
+	memcpy(buf + 4, iphdr->ip_dst, 4);
 	buf[8] = 0x0;
 	buf[9] = UDP_PROTOCOL;
 	buf[10] = htons(ntohs(iphdr->ip_pkt_len) - iphdr->ip_hdr_len * 4); 
 
+	printf("%d\n", hdr->len);
+
 	int data_len = ntohs(hdr->len) - UDP_HEADER_SIZE;
 
-	memcpy(buf + PHEADER_SIZE, hdr, sizeof(hdr));
+	memcpy(buf + PHEADER_SIZE, hdr, UDP_HEADER_SIZE);
 	memcpy(buf + PHEADER_SIZE + UDP_HEADER_SIZE, data, data_len);
 
 	if (data_len % 2 != 0) {
 		data_len++;		                                                                                  
 	}
 	
-	if (checksum((uchar *) buf, PHEADER_SIZE + UDP_HEADER_SIZE + data_len) != mychecksum(buf, PHEADER_SIZE + UDP_HEADER_SIZE + data_len)) {
+	if (checksum((uchar *) buf, PHEADER_SIZE + UDP_HEADER_SIZE + data_len / 2) != mychecksum(buf, PHEADER_SIZE + UDP_HEADER_SIZE + data_len)) {
 		printf("puzzle.\n");
 	}
+
+	char str[DEFAULT_MTU] = {0};
+	memcpy(str, buf + PHEADER_SIZE + UDP_HEADER_SIZE, data_len);
+	printf("data_len -> %d\n", data_len);
+	printf("data -> %s", str);
+	printf("%d\n", (PHEADER_SIZE + UDP_HEADER_SIZE + data_len) / 2);	
 	
-	return (uint16_t) checksum((uchar *)buf, PHEADER_SIZE + UDP_HEADER_SIZE + data_len);
+	return checksum((uchar *)buf, (PHEADER_SIZE + UDP_HEADER_SIZE + data_len) / 2);
 	//return mychecksum(buf, PHEADER_SIZE + UDP_HEADER_SIZE + data_len);
 }
 
 uint16_t mychecksum(uint8_t *data, int len)
 {
 	uint32_t sum;
+	uint16_t word;
+	
 
 	while (len > 1) {
-		printf("%x ", * (uint16_t *) data);
-		sum += * (uint16_t *) data++;
-		len -=2;
+
+		memcpy(&word, data, 2);
+
+		printf("%x %x ", word & 0xff, word & 0xff00);	
+
+		sum += word;
+		
+		data += 2;
+		len -= 2;
 	}
 
 	if (len > 0) {
-		sum += * (uint8_t *) data;
+		sum += *data;
 	}
 
 	while (sum >> 16) {
 		sum = (sum & 0xffff) + (sum >> 16);
 	}
 
-	return (uint16_t) ~sum;
+	return ~sum;
 }
 
 // RAPPEL caller les fonctions pour convertir en network byte order ou l'inverse
 
-int send_udp(uint8_t dest_ip[4], uint16_t dest_port, uint16_t src_port, char *data, int len)
+int send_udp(uint8_t dest_ip[4], uint16_t dest_port, uint16_t src_port, char *data, uint16_t len)
 {
 	// check if data is too big
 	if (len > DEFAULT_MTU - sizeof(ip_packet_t) - UDP_HEADER_SIZE) {
 		return -1; 
 	}
 	
-	char tmpbuf[MAX_TMPBUF_LEN];
 	// Allocate the gpacket (ip, udphdr)
 	gpacket_t *out_pkt = (gpacket_t *) malloc(sizeof(gpacket_t));
-	ip_packet_t *ipkt = (ip_packet_t *)(out_pkt->data.data);
-	ipkt->ip_hdr_len = 5;                                  // no IP header options!!
+	ip_packet_t *ipkt = (ip_packet_t *) out_pkt->data.data;
+	ipkt->ip_hdr_len = 5;
+	ipkt->ip_pkt_len = htons(ipkt->ip_hdr_len * 4 + UDP_HEADER_SIZE + len);
 	
-	udphdr_t *hdr = (udphdr_t *)((uchar *)ipkt + ipkt->ip_hdr_len*4);
+	// fill in header and copy data
+	udphdr_t *hdr = (udphdr_t *) ((uchar *) ipkt + ipkt->ip_hdr_len*4);
 	hdr->source = htons(src_port);
 	hdr->dest = htons(dest_port);
 	hdr->check = 0;
-	uint16_t ttlen = len + UDP_HEADER_SIZE;
-	hdr->len = htons(ttlen);
+	hdr->len = htons(len + UDP_HEADER_SIZE);
+
+	printf("gpkt ip udp : %x %x %x\n", out_pkt, ipkt, hdr);
 
 	memcpy((uchar *) hdr+UDP_HEADER_SIZE, data, len);
 	
-	//uint32_t tmp = getsrcaddr(out_pkt,dest_ip);
+	// copies src and dest addresses into IP header in newtork byte order
+	getsrcaddr(out_pkt,dest_ip);
+	
+	char tmp[4] = {0};
+	COPY_IP(ipkt->ip_dst, gHtonl(tmp, dest_ip));
 
-	/*
-	uint16_t checksum = cksum(ipkt,hdr,(uint8_t *)data);
-	if(checksum == 0){
-		checksum = ~checksum;
+	printf("u -> %x\n", hdr);
+
+	// calculate checkum with everything in network byte order	
+	hdr->check = htons(udp_cksum(ipkt, hdr, (uint8_t *) data));
+
+	if(hdr->check == 0){
+		hdr->check = ~hdr->check;
 	}
- 	hdr->check = htons(checksum);
-	*/
 
-	hdr->check = 0;
+	//hdr->check = 0;
 	// send
-	IPOutgoingPacket(out_pkt, dest_ip, ttlen, 1, UDP_PROTOCOL);
+	IPOutgoingPacket(out_pkt, dest_ip, ntohs(hdr->len), 1, UDP_PROTOCOL);
 
 	return 0;
 }
@@ -159,7 +181,6 @@ void udp_recv(gpacket_t *packet)
 	// verifie que le port est rouvert
     if (port_open(ntohs(udpHeader->dest), UDP_PROTOCOL) == 0) 
     {
-	printf("got packet for unopened port %d\n", ntohs(udpHeader->dest));
         ICMPProcessPortUnreachable(packet);
         return;
     }

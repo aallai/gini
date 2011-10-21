@@ -502,27 +502,29 @@ int isInSameNetwork(uchar *ip_addr1, uchar *ip_addr2)
 	return EXIT_FAILURE;
 }
 
-uint32_t getsrcaddr(gpacket_t *pkt, uchar *dst_ip){
+int getsrcaddr(gpacket_t *pkt, uchar *dst_ip){
 	char tmpbuf[MAX_TMPBUF_LEN];
 	int status;
 	uchar iface_ip_addr[4];
 
 	ip_packet_t *ip_pkt = (ip_packet_t *)pkt->data.data;
 
-	COPY_IP(ip_pkt->ip_dst, gHtonl(tmpbuf, dst_ip));
 	// find the nexthop and interface and fill them in the "meta" frame
 	// NOTE: the packet itself is not modified by this lookup!
-	if (findRouteEntry(route_tbl, gNtohl(tmpbuf, ip_pkt->ip_dst),
-			 pkt->frame.nxth_ip_addr, &(pkt->frame.dst_interface)) == EXIT_FAILURE)
+	if (findRouteEntry(route_tbl, dst_ip,
+			 pkt->frame.nxth_ip_addr, &(pkt->frame.dst_interface)) == EXIT_FAILURE) {
 		return EXIT_FAILURE;
+	}
 
 	verbose(2, "[IPOutgoingPacket]:: lookup MTU of nexthop");
 	// lookup the IP address of the destination interface..
 	if ((status = findInterfaceIP(MTU_tbl, pkt->frame.dst_interface,
-			iface_ip_addr)) == EXIT_FAILURE)
+			iface_ip_addr)) == EXIT_FAILURE) {
 		return EXIT_FAILURE;
+	}
 		// the outgoing packet should have the interface IP as source
-	uint32_t *tmp;
-	COPY_IP(tmp, gHtonl(tmpbuf, iface_ip_addr));
-	return *tmp;
+
+	// in host byte order
+	COPY_IP(ip_pkt->ip_src, gHtonl(tmpbuf, iface_ip_addr));
+	return EXIT_SUCCESS;
 }

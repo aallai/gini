@@ -822,6 +822,7 @@ void haltCmd()
 
 void ncCmd()
 {
+	char data[DEFAULT_MTU] = {0};
 	char *tok = strtok(NULL, " \n");
 
 	if (tok == NULL) {
@@ -848,10 +849,6 @@ void ncCmd()
 			printf("Unspecified error opening port!");
 			return;
 		}
-
-		char data[DEFAULT_MTU] = {0};
-		
-		
 
 		if (grecv(port, UDP_PROTOCOL, data, DEFAULT_MTU - 1) == -1) {
 			printf("Error receiving packet!\n");
@@ -881,10 +878,11 @@ void ncCmd()
                 	return;
         	}	 
 
-		int len = strlen(tok);
+		uint16_t len = strlen(tok);
 		tok[len] = '\n';
+		memcpy(data, tok, len + 1);
 
-		if (send_udp(ip, port, 0, tok, len + 1) == -1) {
+		if (send_udp(ip, port, 0, data, len + 1) == -1) {
 			printf("%s", "Error, too much data.\n");
 		}	
 	}

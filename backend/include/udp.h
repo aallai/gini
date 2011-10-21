@@ -17,7 +17,7 @@ typedef struct udphdr {
 } udphdr_t;
 
 // returns -1 on error
-int send_udp(uchar dest_ip[4], uint16_t dest_port, uint16_t src_port, char *data, int len);
+int send_udp(uchar dest_ip[4], uint16_t dest_port, uint16_t src_port, char *data, uint16_t len);
 void udp_recv(gpacket_t *packet);
 
 #endif /* __UDP_H__ */
