@@ -48,7 +48,7 @@ void IPIncomingPacket(gpacket_t *in_pkt)
 	// Is this IP packet for me??
 	if (IPCheckPacket4Me(in_pkt))
 	{
-		verbose(1, "[IPIncomingPacket]:: got IP packet destined to this router");
+		verbose(2, "[IPIncomingPacket]:: got IP packet destined to this router");
 		IPProcessMyPacket(in_pkt);
 	} else if (COMPARE_IP(gNtohl(tmpbuf, ip_pkt->ip_dst), bcast_ip) == 0)
 	{
@@ -405,6 +405,15 @@ int IPOutgoingPacket(gpacket_t *pkt, uchar *dst_ip, int size, int newflag, int s
 	cksum = checksum((uchar *)ip_pkt, ip_pkt->ip_hdr_len*2);
 	ip_pkt->ip_cksum = htons(cksum);
 	pkt->data.header.prot = htons(IP_PROTOCOL);
+
+
+	/*XXX*/
+	udphdr_t *u = (udphdr_t *) ((uchar *) ip_pkt + ip_pkt->ip_hdr_len * 4);
+	uchar len = ntohs(u->len) - UDP_HEADER_SIZE;
+	char buf[DEFAULT_MTU] = {0};
+	memcpy(buf,  (uchar *) u + UDP_HEADER_SIZE, len);
+	printf("DATA at IP -> %s", buf);
+	/*XXX*/
 	
 	IPSend2Output(pkt);
 	verbose(2, "[IPOutgoingPacket]:: IP packet sent to output queue.. ");

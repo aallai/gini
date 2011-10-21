@@ -195,9 +195,6 @@ void ICMPProcessPortUnreachable(gpacket_t *in_pkt)
 	cksum = checksum((uchar *)icmphdr, (8 + iprevlen)/2 );
 	icmphdr->checksum = htons(cksum);
     
-	verbose(2, "[ICMPProcessPortUnreachable]:: Sending... ICMP Port Unreachable message ");
-	printf("Checksum at ICMP routine (Port Unreachable):  %x\n", cksum);
-    
 	// send the message back to the IP module for further processing ..
 	// set the messsage as REPLY_PACKET
 	IPOutgoingPacket(in_pkt, gNtohl(tmpbuf, ipkt->ip_src), 8+iprevlen, 1, ICMP_PROTOCOL);
