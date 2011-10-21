@@ -305,10 +305,6 @@ int IPProcessMyPacket(gpacket_t *in_pkt)
 	{
 		// Is packet ICMP? send it to the ICMP module
 		// further processing with appropriate type code
-		char str[5];
-		sprintf(str,"%x", ip_pkt->ip_prot);
-		verbose(1, str);
-		
 
 		if (ip_pkt->ip_prot == ICMP_PROTOCOL) {
 			ICMPProcessPacket(in_pkt);
@@ -318,7 +314,6 @@ int IPProcessMyPacket(gpacket_t *in_pkt)
 		// Is packet UDP/TCP (only UDP implemented now)
 		// May be we can deal with other connectionless protocols as well.
 		if (ip_pkt->ip_prot ==  UDP_PROTOCOL) {
-			verbose(1, "[IPProcessMyPacket]:: jdonne au udp");
 			udp_recv(in_pkt);
 			return EXIT_SUCCESS;
 		}

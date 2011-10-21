@@ -158,7 +158,7 @@ int close_port(int port, int proto)
 
 /** Another thread can write to the pipe while we read from it. Problem??**/
 
-int recv(int port, int proto, void *buf, size_t buf_len)
+int grecv(int port, int proto, void *buf, size_t buf_len)
 {
 	port_t *p;
 

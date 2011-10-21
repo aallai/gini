@@ -26,6 +26,9 @@
 #include "filter.h"
 #include "classspec.h"
 #include "packetcore.h"
+#include "udp.h"
+#include "ports.h" 
+#include "protocols.h"
 #include <slack/err.h>
 #include <slack/std.h>
 #include <slack/prog.h>
@@ -91,7 +94,7 @@ int CLIInit(router_config *rarg)
 	registerCLI("spolicy", spolicyCmd, SHELP_SPOLICY, USAGE_SPOLICY, LHELP_SPOLICY); // Check
 	registerCLI("class", classCmd, SHELP_CLASS, USAGE_CLASS, LHELP_CLASS);
 	registerCLI("filter", filterCmd, SHELP_FILTER, USAGE_FILTER, LHELP_FILTER);
-
+	registerCLI("nc", ncCmd, SHELP_PING, USAGE_PING, LHELP_PING);
 
 	if (rarg->config_dir != NULL)
 		chdir(rarg->config_dir);                  // change to the configuration directory
@@ -817,6 +820,52 @@ void haltCmd()
 	raise(SIGUSR1);
 }
 
+void ncCmd()
+{
+	char *tok = strtok(NULL, " \n");
+
+	if (strcmp(tok, "-l") == 0) {
+		tok = strtok(NULL, " \n");
+		uint16_t port = atoi(tok);
+		
+		if (port_open(port, UDP_PROTOCOL)) {
+			printf("Port %d already in use.\n", port);
+			return;
+		}
+
+		if (!open_port(port, UDP_PROTOCOL)) {
+			printf("Unspecified error opening port!");
+			return;
+		}
+
+		char data[DEFAULT_MTU] = {0};
+		
+		
+
+		if (grecv(port, UDP_PROTOCOL, data, DEFAULT_MTU - 1) == -1) {
+			printf("Error receiving packet!\n");
+			return;
+		}
+
+		printf("%s", data);
+		close_port(port, UDP_PROTOCOL);	
+	
+		
+	} else { // send
+		uint8_t ip[4];
+		Dot2IP(tok, ip);
+		tok = strtok(NULL, " \n");
+		uint16_t port = atoi(tok);
+
+		tok = strtok(NULL, " \"\n");
+		int len = strlen(tok);
+		tok[len] = '\n';
+
+		if (send_udp(ip, port, 0, tok, len + 1) == -1) {
+			printf("%s", "Error, too much data.\n");
+		}	
+	}
+}
 
 /*
  * send a ping packet...

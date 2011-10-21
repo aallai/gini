@@ -29,7 +29,7 @@ int open_port(int port, int proto);
 
 // On a real machine you should not have the ability to read from any port!!!
 // returns number of bytes copied into buf or -1 upon error
-int recv(int port, int proto, void *buf, size_t buf_len);
+int grecv(int port, int proto, void *buf, size_t buf_len);
 
 // or close any port!
 int close_port(int port, int proto);

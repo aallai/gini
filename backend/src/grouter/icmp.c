@@ -50,7 +50,7 @@ void ICMPProcessPacket(gpacket_t *in_pkt)
 	case ICMP_TIMESTAMPREPLY:
 	case ICMP_INFO_REQUEST:
 	case ICMP_INFO_REPLY:
-		verbose(2, "[ICMPProcessPacket]:: ICMP processing for type %d not implemented ", icmphdr->type);
+		verbose(1, "[ICMPProcessPacket]:: ICMP processing for type %d not implemented ", icmphdr->type);
 		break;
 	}
 }
@@ -195,7 +195,7 @@ void ICMPProcessPortUnreachable(gpacket_t *in_pkt)
 	cksum = checksum((uchar *)icmphdr, (8 + iprevlen)/2 );
 	icmphdr->checksum = htons(cksum);
     
-	verbose(2, "[ICMPProcessTTLExpired]:: Sending... ICMP Port Unreachable message ");
+	verbose(2, "[ICMPProcessPortUnreachable]:: Sending... ICMP Port Unreachable message ");
 	printf("Checksum at ICMP routine (Port Unreachable):  %x\n", cksum);
     
 	// send the message back to the IP module for further processing ..
