@@ -52,19 +52,6 @@ void *toEthernetDev(void *arg)
 	char tmpbuf[MAX_TMPBUF_LEN];
 	int pkt_size;
 
-	/*XXX*/
-	ip_packet_t *ip = (ip_packet_t *) inpkt->data.data;
-	
-	if (ip->ip_prot == UDP_PROTOCOL) {
-		udphdr_t *u = (udphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
-		uchar len = ntohs(u->len) - UDP_HEADER_SIZE;
-		char buf[DEFAULT_MTU] = {0};
-		memcpy(buf, (uchar *) u + UDP_HEADER_SIZE, len);
-		printf("DATA at ETHERNET -> %s", buf);
-	}
-	/*XXX*/
-	
-
 	verbose(2, "[toEthernetDev]:: entering the function.. ");
 	// find the outgoing interface and device...
 	if ((iface = findInterface(inpkt->frame.dst_interface)) != NULL)

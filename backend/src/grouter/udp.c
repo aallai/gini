@@ -95,12 +95,7 @@ int send_udp(uint8_t dest_ip[4], uint16_t dest_port, uint16_t src_port, char *da
 	uint16_t ttlen = len + UDP_HEADER_SIZE;
 	hdr->len = htons(ttlen);
 
-	/*XXX*/
-	memcpy(hdr+UDP_HEADER_SIZE, data, len);
-	char buf[DEFAULT_MTU] = {0};
-	memcpy(buf, hdr+UDP_HEADER_SIZE, len);
-	printf("DATA at UDP -> %s", buf);
-	/*XXX*/
+	memcpy((uchar *) hdr+UDP_HEADER_SIZE, data, len);
 	
 	//uint32_t tmp = getsrcaddr(out_pkt,dest_ip);
 

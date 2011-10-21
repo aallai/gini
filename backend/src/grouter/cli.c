@@ -824,8 +824,19 @@ void ncCmd()
 {
 	char *tok = strtok(NULL, " \n");
 
+	if (tok == NULL) {
+		printf("nc : too few arguments.\n");
+		return;
+	}
+
 	if (strcmp(tok, "-l") == 0) {
 		tok = strtok(NULL, " \n");
+
+		if (tok == NULL) {
+                	printf("nc : too few arguments.\n");
+                	return;
+        	}	 	
+
 		uint16_t port = atoi(tok);
 		
 		if (port_open(port, UDP_PROTOCOL)) {
@@ -855,9 +866,21 @@ void ncCmd()
 		uint8_t ip[4];
 		Dot2IP(tok, ip);
 		tok = strtok(NULL, " \n");
+
+		if (tok == NULL) {
+                	printf("nc : too few arguments.\n");
+                	return;
+        	}	 
+
 		uint16_t port = atoi(tok);
 
 		tok = strtok(NULL, " \"\n");
+
+		if (tok == NULL) {
+                	printf("nc : too few arguments.\n");
+                	return;
+        	}	 
+
 		int len = strlen(tok);
 		tok[len] = '\n';
 

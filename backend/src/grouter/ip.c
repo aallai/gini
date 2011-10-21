@@ -405,15 +405,6 @@ int IPOutgoingPacket(gpacket_t *pkt, uchar *dst_ip, int size, int newflag, int s
 	cksum = checksum((uchar *)ip_pkt, ip_pkt->ip_hdr_len*2);
 	ip_pkt->ip_cksum = htons(cksum);
 	pkt->data.header.prot = htons(IP_PROTOCOL);
-
-
-	/*XXX*/
-	udphdr_t *u = (udphdr_t *) ((uchar *) ip_pkt + ip_pkt->ip_hdr_len * 4);
-	uchar len = ntohs(u->len) - UDP_HEADER_SIZE;
-	char buf[DEFAULT_MTU] = {0};
-	memcpy(buf,  (uchar *) u + UDP_HEADER_SIZE, len);
-	printf("DATA at IP -> %s", buf);
-	/*XXX*/
 	
 	IPSend2Output(pkt);
 	verbose(2, "[IPOutgoingPacket]:: IP packet sent to output queue.. ");
