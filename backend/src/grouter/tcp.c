@@ -3,6 +3,7 @@
 #include "protocols.h"
 #include "message.h"
 #include <stdlib.h>
+#include "time.h"
 
 /** state variables, only one active connection so there not in a struct
  * our version of the TCB from the rfc
@@ -28,12 +29,20 @@ unsigned long recv_win;   // window
 unsigned long irs;        // initial sequence number
 
 #define BUFSIZE 65535
-
+ 
+int recv_off = 0;
+int snd_off = 0;
 uchar snd_data[BUFSIZE] = {0};
 uchar rcv_data[BUFSIZE] = {0};
  
-// returns 0 on error
+uint32_t sequence_gen()
+{
+	return (uint32_t) clock();
+}
 
+
+
+// returns 0 on error
 int listen(ushort port)
 {
 	if (!open_port(port, TCP_PROTOCOL)) {
@@ -70,10 +79,16 @@ int connect(ushort local, uchar *dest_ip, ushort dest_port)
 	ip->ip_hdr_len = 5;
 
 	tcphdr_t *hdr = (uchar *) ip + ip->ip_hdr_len * 4;
-		
+					
 }
 
-tcp_recv(gpacket_t *)
+void tcp_recv(gpacket_t *gpkt)
+{
+	// check if destined for us (port bla bla)
+	
+	// switch sur le flag
+	if (flags & (SYN | ACK))
+}
 
 int close()
 {
