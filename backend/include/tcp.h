@@ -1,6 +1,7 @@
 #ifndef __TCP_H__
 #define __TCP_H__
 
+#include "message.h"
 #include <stdint.h>
 
 // flags
@@ -51,6 +52,9 @@ enum
   CLOSING  
 };
 
+// pseudo header size in bytes
+#define TCP_PHEADER_SIZE 12
+
 // a port on which to listen on, creates port for you
 int listen(ushort port);
 
@@ -59,6 +63,8 @@ int connect(ushort local, uchar *dest_ip, ushort dest_port);
 
 // only one connection at a time for now, must call connect first
 int send(char *buf, int len);
+
+void tcp_recv(gpacket_t *gpkt);
 
 // close current connection
 int close(void);

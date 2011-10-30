@@ -34,6 +34,18 @@ int recv_off = 0;
 int snd_off = 0;
 uchar snd_data[BUFSIZE] = {0};
 uchar rcv_data[BUFSIZE] = {0};
+
+uint16_t tcp_checksum(uchar *src, uchar *dst, tcphdr_t *hdr, int data_len)
+{
+	uchar buf[TCP_PHEADER_SIZE + DEFAULT_MTU] = {0};
+
+	memcpy(buf, src, 4);
+	memcpy(buf + 4, dst, 4);
+	buf[9] = TCP_PROTOCOL;
+	(ushort *) buf[5] = hdr->data_off * 4 + data_len
+
+	
+} 
  
 uint32_t sequence_gen()
 {

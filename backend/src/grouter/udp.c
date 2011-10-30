@@ -32,7 +32,7 @@ uint16_t udp_cksum(ip_packet_t *iphdr, udphdr_t *hdr, uint8_t *data)
 	memcpy(buf + 4, iphdr->ip_dst, 4);
 	buf[8] = 0x0;
 	buf[9] = UDP_PROTOCOL;
-	buf[10] = htons(ntohs(iphdr->ip_pkt_len) - iphdr->ip_hdr_len * 4); 
+	((ushort *) buf)[5] = htons(ntohs(iphdr->ip_pkt_len) - iphdr->ip_hdr_len * 4); 
 	
 	int data_len = ntohs(hdr->len) - UDP_HEADER_SIZE;
 
@@ -43,31 +43,8 @@ uint16_t udp_cksum(ip_packet_t *iphdr, udphdr_t *hdr, uint8_t *data)
 		data_len++;		                                                                                  
 	}
 	
-	//return checksum((uchar *)buf, (PHEADER_SIZE + UDP_HEADER_SIZE + data_len) / 2);
-	return mychecksum(buf, PHEADER_SIZE + UDP_HEADER_SIZE + data_len);
+	return checksum((void *)buf, (PHEADER_SIZE + UDP_HEADER_SIZE + data_len) / 2);
 }
-
-uint16_t mychecksum(uint8_t *buf, int len)
-{
-	uint32_t sum = 0;
-
-	while (len > 1) {
-		sum += * (uint16_t *) buf++;
-		len -= 2;
-	}
-
-	if (len > 0) {
-		sum += * (uint8_t *) buf;
-	}
-
-	while (sum >> 16) {
-		sum = (sum & 0xffff) + (sum >> 16);
-	}
-
-	return (uint16_t) ~sum;
-}
-
-// RAPPEL caller les fonctions pour convertir en network byte order ou l'inverse
 
 int send_udp(uint8_t dest_ip[4], uint16_t dest_port, uint16_t src_port, char *data, uint16_t len)
 {
@@ -102,14 +79,14 @@ int send_udp(uint8_t dest_ip[4], uint16_t dest_port, uint16_t src_port, char *da
 	uchar tmp[4] = {0};
 	COPY_IP(ipkt->ip_dst, gHtonl(tmp, dest_ip));
 
-	/*
+	
 	// calculate checkum with everything in network byte order	
 	hdr->check = htons(udp_cksum(ipkt, hdr, (uint8_t *) data));
 
 	if(hdr->check == 0){
 		hdr->check = ~hdr->check;
 	}
-	*/
+	
 
 	// send
 	IPOutgoingPacket(out_pkt, dest_ip, ntohs(hdr->len), 1, UDP_PROTOCOL);
@@ -132,7 +109,7 @@ void udp_recv(gpacket_t *packet)
     uint8_t *data = (uint8_t *) udpHeader + UDP_HEADER_SIZE;
     int dataLength = ntohs(udpHeader->len) - UDP_HEADER_SIZE;
  
-    /*    
+      
     if (udpHeader->check !=0) 
     {
 	// dump packet
@@ -140,7 +117,6 @@ void udp_recv(gpacket_t *packet)
 		return;
 	} 
     }
-    */
 
     // verifie que le port est rouvert
     if (port_open(ntohs(udpHeader->dest), UDP_PROTOCOL) == 0) 
