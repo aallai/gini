@@ -31,7 +31,7 @@ unsigned long iss;        // inital sequence number
 
 // for receive
 unsigned long recv_nxt;   // next
-unsigned long recv_win = BUFSIZE;   // window
+unsigned long recv_win;   // window
 unsigned long irs;        // initial sequence number
 
 #define BUFSIZE 65535
@@ -55,11 +55,6 @@ void set_state(int val)
 	pthread_mutex_lock(&state_lock);
 	state = val;
 	pthread_mutex_unlock(&state_lock);
-}
-
-void reset_state()
-{
-
 }
 
 // assumes the data is right after the tcp header
@@ -146,7 +141,8 @@ int connect(ushort local, uchar *dest_ip, ushort dest_port)
 	hdr->flags = SYN;
 	hdr->checksum = 0;
 
-	// I THINK WINDOW CAN BE ZERO FOR FIRST SYN
+	recv_win = BUFSIZE;
+	hdr->win = recv_win;
 
 	hdr->checksum = htons(tcp_checksum(ip->ip_src, ip->ip_dst, hdr, 0));
 	if (hdr->checksum == 0) {
@@ -227,6 +223,39 @@ void send_synack(gpacket_t *gpkt)
 	IPOutgoingPacket(gpkt, gNtohl(tmp, ip->ip_src), hdr->data_off * 4, 0, TCP_PROTOCOL);
 }
 
+// ack segment
+// assumes all the state variables have been set approprately
+// will probably change this to have it send some data too
+void send_ack(gpacket_t *gpkt)
+{
+	uchar tmp[4];
+        uint16_t tmp_port;
+
+        ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
+        tcphdr_t *hdr = (tcphdr_t *) (uchar *) ip + ip->ip_hdr_len * 4;	
+
+	hdr->flags = ACK;
+        tmp_port = hdr->src;
+        hdr->src = hdr-src;
+        hdr->src = tmp_port;
+	
+	hdr->ack = htonl(recv_nxt);
+        hdr->seq = htonl(snd_nxt);
+        hdr->data_off = 5;
+        hdr->win = htonl(recv_win);
+        hdr->urg = 0;
+        hdr->checksum = 0;
+
+	// src and dst are flipped
+        hdr->checksum = htons(tcp_checksum(ip->ip_dst, ip->ip_src, hdr, 0));
+
+        if (hdr->checksum == 0) {
+                hdr->checksum = ~hdr->checksum;
+        }   
+
+        IPOutgoingPacket(gpkt, gNtohl(tmp, ip->ip_src), hdr->data_off * 4, 0, TCP_PROTOCOL);
+}
+
 // process incoming segment in closed state
 void incoming_closed(gpaket_t *gpkt)
 {
@@ -267,6 +296,7 @@ void incoming_listen(gpacket_t *gpkt)
 
 		recv_nxt = ntohl(hdr->seq) + 1;
 		irs = ntohl(hdr->seq);
+		recv_win = BUFSIZE;
 
 		iss = sequence_gen();
 		snd_nxt = iss + 1;
@@ -304,8 +334,35 @@ void incoming_syn_sent(gpacket_t *gpkt)
 		valid_ack = 1;
 	}
 
+	// reset
 	if (hdr->flags & RST) {
+		if (valid_ack) {
+			set_state(CLOSED);
+		} 
+		free(gpkt);
+		return;
+	}
 
+	else if (hdr->flags & SYN) {
+		recv_nxt = ntohl(hdr->seq) + 1;
+		recv_win--;
+		irs = ntohl(hdr->seq);
+
+		if (valid_ack) {
+			snd_una = ntohl(hdr->ack);
+
+			send_ack(gpkt);
+			set_state(ESTABLISHED);
+			return;
+
+		} else {
+			send_synack(gpkt);
+			set_state(SYN_RECEIVED);		
+		}
+	} 
+
+	else {
+		free(gpkt);
 	}
 }
 
