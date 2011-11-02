@@ -12,6 +12,8 @@
 #define ACK 0x10
 #define URG 0x20
 
+#define TCP_HEADER_SIZE 20
+
 // header
 
 typedef struct tcphdr {

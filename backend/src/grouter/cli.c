@@ -27,6 +27,7 @@
 #include "classspec.h"
 #include "packetcore.h"
 #include "udp.h"
+#include "tcp.h"
 #include "ports.h" 
 #include "protocols.h"
 #include <slack/err.h>
@@ -824,10 +825,37 @@ void ncCmd()
 {
 	char data[DEFAULT_MTU] = {0};
 	char *tok = strtok(NULL, " \n");
+	int proto = UDP_PROTOCOL;
 
 	if (tok == NULL) {
 		printf("nc : too few arguments.\n");
 		return;
+	}
+
+	if(strcmp(tok,"-o")== 0){
+		tok = strtok(NULL, " \n");
+		
+		if (tok == NULL) {
+                	printf("nc : too few arguments.\n");
+                	return;
+        	}
+
+		proto = TCP_PROTOCOL;
+		
+		uint16_t port = atoi(tok);
+
+		if (port_open(port, proto)) {
+			printf("Port %d already in use.\n", port);
+			return;
+		}
+
+		if (!open_port(port, proto)) {
+			printf("Unspecified error opening port!");
+			return;
+		}
+
+		
+		
 	}
 
 	if (strcmp(tok, "-l") == 0) {

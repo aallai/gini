@@ -1,4 +1,4 @@
-
+	
 #include "ports.h"
 #include "tcp.h"
 #include "ip.h"
@@ -109,7 +109,7 @@ int connect(ushort local, uchar *dest_ip, ushort dest_port)
 		return 0;
 	}
 
-	local_port = port;
+	local_port = local;
 	memcpy(remote_ip, dest_ip, 4);
 	remote_port = dest_port;
 
@@ -364,6 +364,63 @@ void incoming_syn_sent(gpacket_t *gpkt)
 	else {
 		free(gpkt);
 	}
+}
+
+int send(char *buf, int len)
+{	
+	if(read_state() == CLOSED){
+		printf("error: connection must be opened");
+		return 0;
+	}
+
+	else if(read_state() == LISTEN){
+		return 0;
+	}
+
+	else if(read_state() == ESTABLISHED){
+		// check if data is too big
+		if (len > DEFAULT_MTU - sizeof(ip_packet_t) - TCP_HEADER_SIZE) {
+			return 0; 
+		}
+	
+		gpacket_t *gpkt = (gpacket_t *) malloc(sizeof(gpacket_t));
+
+		if (gpkt == NULL) {
+			return 0;
+		}
+
+		ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
+		ip->ip_hdr_len = 5;
+
+		tcphdr_t *hdr = (uchar *) ip + ip->ip_hdr_len * 4;
+
+		getsrcaddr(gpkt, dest_ip);
+		uchar tmpbuf[4] = {0};
+		COPYIP(ip->ip_dst, gHtonl(tmp, dest_ip));
+
+		hdr->ack = htonl(recv_nxt);
+        	hdr->seq = htonl(iss);
+		hdr->src = htons(local_port);
+		hdr->dst = htons(remote_port);
+		hdr->data_off = 5;
+		hdr->flags = SYN;
+		hdr->checksum = 0;
+		
+		memcpy((uchar *) hdr+TCP_HEADER_SIZE, data, len);
+
+		hdr->checksum = htons(tcp_checksum(ip->ip_src, ip->ip_dst, hdr, len));
+		if (hdr->checksum == 0) {
+			hdr->checksum = ~hdr->checksum;
+		}
+		
+		IPOutgoingPacket(gpkt, gNtohl(tmp, ip->ip_src), hdr->data_off * 4, 1, TCP_PROTOCOL);	
+	}
+
+	else {
+		return 0;
+	}
+
+	return 1;
 }
 
 void tcp_recv(gpacket_t *gpkt)
