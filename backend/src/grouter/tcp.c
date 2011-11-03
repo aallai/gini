@@ -211,7 +211,7 @@ int tcp_connect(ushort local, uchar *dest_ip, ushort dest_port)
 
 	getsrcaddr(gpkt, dest_ip);
 	uchar tmpbuf[4] = {0};
-	COPYIP(ip->ip_dst, gHtonl(tmpbuf, dest_ip));
+	COPY_IP(ip->ip_dst, gHtonl(tmpbuf, dest_ip));
 
 	hdr->src = htons(tcb.local_port);
 	hdr->dst = htons(tcb.remote_port);
@@ -384,7 +384,7 @@ void incoming_listen(gpacket_t *gpkt)
 		tcb.snd_una = tcb.iss;
 
 		uchar tmp[4];
-		COPYIP(tcb.remote_ip, gNtohl(tmp, ip->ip_src));
+		COPY_IP(tcb.remote_ip, gNtohl(tmp, ip->ip_src));
 		tcb.remote_port = ntohs(hdr->dst);
 
 		send_synack(gpkt);
@@ -434,6 +434,7 @@ void incoming_syn_sent(gpacket_t *gpkt)
 
 			send_ack(gpkt);
 			set_state(ESTABLISHED);
+			printf("Established!\n");
 			return;
 
 		} else {
@@ -451,7 +452,7 @@ void incoming_syn_sent(gpacket_t *gpkt)
 
 //checks if a tcp packet is acceptable
 int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcpLength)
-{
+{/*
 	int accept  = 0; 
 
 	if ( tcpLength == 0 && tcb.recv_win == 0 )
@@ -477,7 +478,7 @@ int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcpLength)
 			accept = 1; 
 		}
 	}
-	return accept; 
+	return accept; */
 }
 
 void update_window(tcphdr_t *tcpHeader)
@@ -494,10 +495,10 @@ void tcp_recv(gpacket_t *gpkt)
 	int packet_acceptable = 0;
 
 	ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
-	uint16_t ipPacketLength = ntohs(ipPacket->ip_pkt_len); 
+	uint16_t ipPacketLength = ntohs(ip->ip_pkt_len); 
 
         tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
-	uint16_t tcpLength = ipPacketLength - 20; 
+	uint16_t tcpLength = ipPacketLength - hdr->data_off * 4; 
 	uint8_t tcp_flags = hdr->flags;
 
 	// je suis le rfc, derniere section qui explique etape par etape
@@ -506,7 +507,7 @@ void tcp_recv(gpacket_t *gpkt)
 	{
 		incoming_closed(gpkt);
 	}	
-	else if (ntohs(hdr->dest) != tcb.local_port) 
+	else if (ntohs(hdr->dst) != tcb.local_port) 
 	{
 		if (hdr->flags & RST) 
 		{
@@ -514,7 +515,7 @@ void tcp_recv(gpacket_t *gpkt)
 		} 
 		else 
 		{
-			sent_rst(gpkt);
+			send_rst(gpkt);
 		}
 	}
 	else if (read_state() == LISTEN) 
@@ -526,7 +527,7 @@ void tcp_recv(gpacket_t *gpkt)
 		incoming_syn_sent(gpkt);
 	}
 	else
-	{
+	{/*
 		packet_acceptable = check_if_tcp_acceptable(hdr,tcpLength); //part of 1st check 
 		
 		if (packet_acceptable == 1)
@@ -592,7 +593,7 @@ void tcp_recv(gpacket_t *gpkt)
 				}
 			} 
 			return;
-		}
+		}*/
 	}
 }
 
@@ -601,8 +602,8 @@ void tcp_recv(gpacket_t *gpkt)
 
 
 
-int close()
+int tcp_close()
 {
 	// must keep receiving until remote end also closes
-
+	return 0;
 }
