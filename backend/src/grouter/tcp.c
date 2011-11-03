@@ -56,22 +56,54 @@ int seq_to_off(uint32_t seq, uint32_t initial)
 	return (seq - initial - 1) % BUFSIZE
 }
 
+// remember to update snd_una and snd_next
+
 // write len bytes starting from data in to circular buffer, returns -1 on error
 int write_snd_buf(uchar *data, int len)
 {
-	if ((tcb.snd_head + len) % BUFSIZE >= seq_to_off(tcb.snd_una, tcb.iss))
+	if ( (tcb.snd_head + len - 1) % BUFSIZE >= seq_to_off(tcb.snd_una, tcb.iss) ) {
+		// not enough space	
+		return -1;
+	}
 
 	int i;
 	for (i = 0; i < len; i++) {
-		buf[ (head + i) % BUFSIZE ] = data[i];
+		tcb.snd_buf[(tcb.snd_head + i) % BUFSIZE] = data[i];
 	}
 
-	head = (head + len) % BUFSIZE;
-
-	return 0;
+	tcb.snd_head = (tcb.snd_head + len) % BUFSIZE;
 }
 
+/** copies up to len bytes of unacknowledged data into buf, will probably be useful
+ * for example if snd_win is smaller than total amount of unacked data, returns amount
+ * of bytes copied (may be smaller than len if there is not that much unacked data!)
+**/
+int copy_una(uchar *buf, int len)
+{
+	long available = tcb.snd_nxt - tcb.snd_una;
 
+	if (available < len) {
+		memcpy(buf, tcb.snd_buf + seq_to_off(tcb.snd_una, tcb.iss), available);
+		return available;
+	} else {
+		memcpy(buf, tcb.snd_buf + seq_to_off(tcb.snd_una, tcb.iss), len);
+		return len;
+	}
+}
+
+/** Same as above buf copies unsent data into buf, returns count of bytes copied. **/
+int copy_unsent(uchar *buf, int len)
+{
+	long available = tcb.snd_head - tcb.snd_nxt;
+
+	if (available < len) {
+                memcpy(buf, tcb.snd_buf + seq_to_off(tcb.snd_nxt, tcb.iss), available);
+                return available;
+        } else {
+                memcpy(buf, tcb.snd_buf + seq_to_off(tcb.snd_nxt, tcb.iss), len);
+                return len;
+        } 	
+}
 
 int read_state() 
 {
