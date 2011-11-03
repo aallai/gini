@@ -172,6 +172,7 @@ int tcp_listen(ushort port)
 
 	tcb.local_port = port;
 
+	printf("state -> LISTEN\n");
 	set_state(LISTEN);
 
 	return 1;
@@ -230,6 +231,7 @@ int tcp_connect(ushort local, uchar *dest_ip, ushort dest_port)
 
 	IPOutgoingPacket(gpkt, tcb.remote_ip, hdr->data_off * 4, 1, TCP_PROTOCOL);
 
+	printf("state -> SYN_SENT\n");
 	set_state(SYN_SENT);
 
 	return 1;		
@@ -388,7 +390,8 @@ void incoming_listen(gpacket_t *gpkt)
 		tcb.remote_port = ntohs(hdr->dst);
 
 		send_synack(gpkt);
-
+		
+		printf("state -> SYN_RECV\n");
 		set_state(SYN_RECV);
 		return;
 	}
@@ -418,6 +421,7 @@ void incoming_syn_sent(gpacket_t *gpkt)
 	// reset
 	if (hdr->flags & RST) {
 		if (valid_ack) {
+			printf("state -> CLOSED\n");
 			set_state(CLOSED);
 		} 
 		free(gpkt);
@@ -433,12 +437,13 @@ void incoming_syn_sent(gpacket_t *gpkt)
 			tcb.snd_una = ntohl(hdr->ack);
 
 			send_ack(gpkt);
+			printf("state -> ESTABLISHED\n");	
 			set_state(ESTABLISHED);
-			printf("Established!\n");
 			return;
 
 		} else {
 			send_synack(gpkt);
+			printf("state -> SYN_RECV\n");
 			set_state(SYN_RECV);		
 		}
 	} 
@@ -552,6 +557,7 @@ void tcp_recv(gpacket_t *gpkt)
 					send_rst(gpkt);
 				}
 				// TODO delete tcb 
+				printf("state -> CLOSED\n");
 				set_state(CLOSED);
 				return;
 			}
@@ -559,6 +565,7 @@ void tcp_recv(gpacket_t *gpkt)
 			{
 				send_rst(gpkt);
 				// TODO send user connection reset
+				printf("state -> CLOSED\n");
 				set_state(CLOSED);
 				// TODO delete tcb
 			}
@@ -566,6 +573,7 @@ void tcp_recv(gpacket_t *gpkt)
 			{
 				if ( read_state() == SYN_RECV )
 				{
+					printf("state -> ESTABLISHED\n");
 					set_state(ESTABLISHED);
 				}
 				else if ( read_state() == ESTABLISHED ) 
