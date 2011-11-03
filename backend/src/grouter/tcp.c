@@ -50,6 +50,7 @@ void reset_tcb_state()
 	memset(&tcb, 0, sizeof(struct tcb_t));
 	set_state(CLOSED);
 	pthread_mutex_init(&tcb.state_lock, NULL);
+	tcb.recv_win = 1024;
 }
 
 void init_tcp()
@@ -284,8 +285,8 @@ void send_synack(gpacket_t *gpkt)
 
 	hdr->flags = SYN | ACK;
 	tmp_port = hdr->src;
-	hdr->src = hdr->src;
-	hdr->src = tmp_port;
+	hdr->src = hdr->dst;
+	hdr->dst = tmp_port;
 
 	hdr->ack = htonl(tcb.recv_nxt);
 	hdr->seq = htonl(tcb.iss);
@@ -361,6 +362,7 @@ void incoming_listen(gpacket_t *gpkt)
 	tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
 
 	if (hdr->flags & RST) {
+		free(gpkt);
 		return;
 	}
 
@@ -371,11 +373,6 @@ void incoming_listen(gpacket_t *gpkt)
 
 	// accept connection
 	if (hdr->flags & SYN) {
-
-		if (ntohs(hdr->dst) != tcb.local_port) {
-			send_rst(gpkt);
-			return;
-		}
 
 		tcb.recv_nxt = ntohl(hdr->seq) + 1;
 		tcb.irs = ntohl(hdr->seq);
@@ -458,20 +455,22 @@ void incoming_syn_sent(gpacket_t *gpkt)
 //checks if a tcp packet is acceptable
 int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcp_data_len)
 {	
+	unsigned long seq = ntohl(hdr-seq);
+
 	int accept  = 0; 
 
 	if ( tcp_data_len == 0 && tcb.recv_win == 0 )
 	{
-		if ( hdr->seq == tcb.recv_nxt ) 
+		if ( seq == tcb.recv_nxt ) 
 		{
 			accept =  1; 
 		}
 	}
 	else if ( tcp_data_len == 0 && tcb.recv_win > 0 )
 	{
-		if ( (tcb.recv_nxt <= hdr->seq) && (hdr->seq < tcb.recv_nxt+tcb.recv_win )) 
+		if ( (tcb.recv_nxt <= seq) && (seq < tcb.recv_nxt+tcb.recv_win )) 
 		{
-			if ( (tcb.recv_nxt <= hdr->seq) && (hdr->seq < tcb.recv_nxt+tcb.recv_win ) ) 
+			if ( (tcb.recv_nxt <= seq) && (seq < tcb.recv_nxt+tcb.recv_win ) ) 
 			{
 				accept =  1; 
 			}
@@ -479,7 +478,8 @@ int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcp_data_len)
 	}
 	else if ( tcp_data_len > 0 && tcb.recv_win > 0 )
 	{
-		if ( ((tcb.recv_nxt <= hdr->seq) && (hdr->seq < tcb.recv_nxt + tcb.recv_win)) || ((tcb.recv_nxt <= hdr->seq + tcp_data_len-1) && (hdr->seq  < tcb.recv_nxt + tcb.recv_win)) ) 
+		if ( ((tcb.recv_nxt <= seq) && (seq < tcb.recv_nxt + tcb.recv_win)) || 
+				((tcb.recv_nxt <= seq + tcp_data_len - 1) && (seq + tcp_data_len - 1  < tcb.recv_nxt + tcb.recv_win)) ) 
 		{
 			accept = 1; 
 		}

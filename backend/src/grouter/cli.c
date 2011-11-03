@@ -893,6 +893,7 @@ void ncCmd()
 	}
 }
 
+// this is anything right now, will be application part when were finished
 void tcp_nc()
 {
 	uint8_t ip[4];
@@ -901,7 +902,7 @@ void tcp_nc()
 	tok = strtok(NULL, " \n");
 	uint16_t port = atoi(tok);
 	
-	tcp_connect(22000, ip, port);	
+	tcp_listen(port);	
 }
 
 /*
