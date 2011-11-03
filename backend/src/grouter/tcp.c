@@ -382,7 +382,7 @@ int check_if_tcp_acceptable(tcphdr_t *tcpHeader, uint16_t tcpLength)
 	}
 	else if ( tcpLength == 0 && recv_win > 0 )
 	{
-		if ( recv_nxt <= hdr->seq < recv_nxt+recv_win ) 
+		if ( (recv_nxt <= hdr->seq) && (hdr->seq < recv_nxt+recv_win )) 
 		{
 			accept =  1; 
 		}
