@@ -16,7 +16,8 @@ env.Append(CFLAGS='-DHAVE_GETOPT_LONG')
 # we could have used Glob('*.c') as well.. but explicit
 # listing provides finer control over the list.
 
-grouter_src = Split ("""grouter.c
+grouter_src = Split ("""tcp.c
+			grouter.c
                         arp.c
 		    	ethernet.c
 			tap.c
@@ -40,8 +41,7 @@ grouter_src = Split ("""grouter.c
 		     	wfq.c
 		     	filter.c
 			ports.c
-			udp.c
-			tcp.c""")
+			udp.c""")
 
 # some of the following library dependencies can be removed?
 # may be the termcap is not needed anymore..?

@@ -69,7 +69,7 @@ int tcp_send(uchar *buf, int len);
 void tcp_recv(gpacket_t *gpkt);
 
 // close current connection
-int tcp_close(void);
+int tcp_close();
 
 // receive is done on port, see ports.h
 

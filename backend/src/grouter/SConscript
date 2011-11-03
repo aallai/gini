@@ -8,9 +8,10 @@ env.Append(CFLAGS='-g')
 env.Append(CFLAGS='-DHAVE_PTHREAD_RWLOCK=1')
 env.Append(CFLAGS='-DHAVE_GETOPT_LONG')
 
-grouter_src = Split ("""ports.c
+grouter_src = Split ("""grouter.c
+			tcp.c
+			ports.c
 			udp.c
-			grouter.c
                         arp.c
                         ethernet.c
                         tap.c

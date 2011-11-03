@@ -452,7 +452,7 @@ void incoming_syn_sent(gpacket_t *gpkt)
 
 //checks if a tcp packet is acceptable
 int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcpLength)
-{/*
+{	
 	int accept  = 0; 
 
 	if ( tcpLength == 0 && tcb.recv_win == 0 )
@@ -464,7 +464,7 @@ int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcpLength)
 	}
 	else if ( tcpLength == 0 && tcb.recv_win > 0 )
 	{
-		if ( (recv_nxt <= hdr->seq) && (hdr->seq < recv_nxt+recv_win )) 
+		if ( (tcb.recv_nxt <= hdr->seq) && (hdr->seq < tcb.recv_nxt+tcb.recv_win )) 
 		{
 			if ( (tcb.recv_nxt <= hdr->seq) && (hdr->seq < tcb.recv_nxt+tcb.recv_win ) ) 
 			{
@@ -474,12 +474,12 @@ int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcpLength)
 	}
 	else if ( tcpLength > 0 && tcb.recv_win > 0 )
 	{
-		if ( ((tcb.recv_nxt <= hdr->seq) && (hdr->seq < tcb.recv_nxt + tcb.recv_win)) || ((tcb.recv_nxt <= hdr->seq + tcpLength-1) && (hdr->seq tcb.recv_nxt + tcb.recv_win)) ) 
+		if ( ((tcb.recv_nxt <= hdr->seq) && (hdr->seq < tcb.recv_nxt + tcb.recv_win)) || ((tcb.recv_nxt <= hdr->seq + tcpLength-1) && (hdr->seq  < tcb.recv_nxt + tcb.recv_win)) ) 
 		{
 			accept = 1; 
 		}
 	}
-	return accept; */
+	return accept; 
 }
 
 void update_window(tcphdr_t *tcpHeader)
@@ -500,7 +500,7 @@ void tcp_recv(gpacket_t *gpkt)
 
         tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
 	uint16_t tcpLength = ipPacketLength - hdr->data_off * 4; 
-	uint8_t tcp_flags = hdr->flags;
+	uint8_t tcpFlags = hdr->flags;
 
 	// je suis le rfc, derniere section qui explique etape par etape
 
@@ -528,7 +528,7 @@ void tcp_recv(gpacket_t *gpkt)
 		incoming_syn_sent(gpkt);
 	}
 	else
-	{/*
+	{
 		packet_acceptable = check_if_tcp_acceptable(hdr,tcpLength); //part of 1st check 
 		
 		if (packet_acceptable == 1)
@@ -594,7 +594,7 @@ void tcp_recv(gpacket_t *gpkt)
 				}
 			} 
 			return;
-		}*/
+		}
 	}
 }
 
