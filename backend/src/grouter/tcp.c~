@@ -446,13 +446,13 @@ int check_if_tcp_acceptable(tcphdr_t *tcpHeader, uint16_t tcpLength)
 	}
 	else if ( tcpLength == 0 && tcb.recv_win > 0 )
 	{
-<<<<<<< HEAD
 		if ( (recv_nxt <= hdr->seq) && (hdr->seq < recv_nxt+recv_win )) 
-=======
-		if ( tcb.recv_nxt <= hdr->seq < tcb.recv_nxt+tcb.recv_win ) 
->>>>>>> 70a3596d93a1943b81cf0f6a54e75330bf47281b
 		{
-			accept =  1; 
+
+			if ( (tcb.recv_nxt <= hdr->seq) && (hdr->seq < tcb.recv_nxt+tcb.recv_win ) ) 
+			{
+				accept =  1; 
+			}
 		}
 	}
 	else if ( tcpLength > 0 && tcb.recv_win > 0 )

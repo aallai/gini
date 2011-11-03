@@ -465,15 +465,16 @@ int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcpLength)
 	else if ( tcpLength == 0 && tcb.recv_win > 0 )
 	{
 		if ( (recv_nxt <= hdr->seq) && (hdr->seq < recv_nxt+recv_win )) 
-
-		if ( tcb.recv_nxt <= hdr->seq < tcb.recv_nxt+tcb.recv_win ) 
 		{
-			accept =  1; 
+			if ( (tcb.recv_nxt <= hdr->seq) && (hdr->seq < tcb.recv_nxt+tcb.recv_win ) ) 
+			{
+				accept =  1; 
+			}
 		}
 	}
 	else if ( tcpLength > 0 && tcb.recv_win > 0 )
 	{
-		if ( (tcb.recv_nxt <= hdr->seq < tcb.recv_nxt + tcb.recv_win) || ( tcb.recv_nxt <= hdr->seq + tcpLength-1 < tcb.recv_nxt + tcb.recv_win) 
+		if ( ((tcb.recv_nxt <= hdr->seq) && (hdr->seq < tcb.recv_nxt + tcb.recv_win)) || ((tcb.recv_nxt <= hdr->seq + tcpLength-1) && (hdr->seq tcb.recv_nxt + tcb.recv_win)) ) 
 		{
 			accept = 1; 
 		}
