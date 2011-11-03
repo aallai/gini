@@ -14,47 +14,79 @@
  * might need to put this in a struct later, since all this needs to be reset
  * for every new connection **/
 
-// will have to threadsafe this
-int state = CLOSED;                // the actual connection state 
-pthread_mutex_t state_lock = PTHREAD_MUTEX_INITIALIZER;
+struct tcb_t {
 
-// ports, addresses
-uint16_t local_port;
-uchar remote_ip[4];
-uint16_t remote_port;
+	int state = CLOSED;                // the actual connection state 
+	pthread_mutex_t state_lock = PTHREAD_MUTEX_INITIALIZER;
 
-// for send
-unsigned long snd_nxt;    // next
-unsigned long snd_una;    // unacknowledged
-unsigned long snd_win;    // window
-unsigned long iss;        // inital sequence number
+	// ports, addresses
+	uint16_t local_port;
+	uchar remote_ip[4];
+	uint16_t remote_port;
 
-// for receive
-unsigned long recv_nxt;   // next
-unsigned long recv_win;   // window
-unsigned long irs;        // initial sequence number
+	// for send
+	unsigned long snd_nxt;    // next
+	unsigned long snd_una;    // unacknowledged
+	unsigned long snd_win;    // window
+	unsigned long iss;        // inital sequence number
 
-#define BUFSIZE 65535
+	// for receive
+	unsigned long recv_nxt;   // next
+	unsigned long recv_win;   // window
+	unsigned long irs;        // initial sequence number
 
-int recv_off = 0;
-int snd_off = 0;
-uchar snd_data[BUFSIZE] = {0};
-uchar rcv_data[BUFSIZE] = {0};
+	#define BUFSIZE 65535
+
+	int snd_head = 0;
+	uchar snd_buf[BUFSIZE] = {0};
+
+} tcb;
+
+void reset_tcb_state()
+{
+	memset(&tcb, 0, sizeof(tcb_t));
+	tcb.state = CLOSED;
+	tcb.state_lock = PTHREAD_MUTEX_INITIALIZER;
+}
+
+// converts seq from sequence space to buffer space using intial as initial sequence number
+int seq_to_off(uint32_t seq, uint32_t initial)
+{
+	// one sequence number used up by SYN, not in buffer
+	return (seq - initial - 1) % BUFSIZE
+}
+
+// write len bytes starting from data in to circular buffer, returns -1 on error
+int write_snd_buf(uchar *data, int len)
+{
+	if ((tcb.snd_head + len) % BUFSIZE >= seq_to_off(tcb.snd_una, tcb.iss))
+
+	int i;
+	for (i = 0; i < len; i++) {
+		buf[ (head + i) % BUFSIZE ] = data[i];
+	}
+
+	head = (head + len) % BUFSIZE;
+
+	return 0;
+}
+
+
 
 int read_state() 
 {
 	int ret;
-	pthread_mutex_lock(&state_lock);
-	ret = state;
-	pthread_mutex_unlock(&state_lock);
+	pthread_mutex_lock(&tcb.state_lock);
+	ret = tcb.state;
+	pthread_mutex_unlock(&tcb.state_lock);
 	return ret;
 }
 
 void set_state(int val) 
 {
-	pthread_mutex_lock(&state_lock);
-	state = val;
-	pthread_mutex_unlock(&state_lock);
+	pthread_mutex_lock(&tcb.state_lock);
+	tcb.state = val;
+	pthread_mutex_unlock(&tcb.state_lock);
 }
 
 // assumes the data is right after the tcp header
@@ -67,7 +99,7 @@ uint16_t tcp_checksum(uchar *src, uchar *dst, tcphdr_t *hdr, int data_len)
 	buf[9] = TCP_PROTOCOL;
 	((ushort *) buf)[5] = hdr->data_off * 4 + data_len
 
-		memcpy(buf + TCP_PHEADER_SIZE, hdr, hdr->data_off * 4);
+	memcpy(buf + TCP_PHEADER_SIZE, hdr, hdr->data_off * 4);
 	memcpy(buf + TCP_PHEADER_SIZE + hdr->data_off * 4, (uchar *) hdr + hdr->data_off * 4, data_len);
 
 	if (data_len % 2 != 0) {
@@ -91,7 +123,7 @@ int listen(ushort port)
 		return 0;
 	}	
 
-	local_port = port;
+	tcb.local_port = port;
 
 	set_state(LISTEN);
 
@@ -109,9 +141,9 @@ int connect(ushort local, uchar *dest_ip, ushort dest_port)
 		return 0;
 	}
 
-	local_port = port;
-	memcpy(remote_ip, dest_ip, 4);
-	remote_port = dest_port;
+	tcb.local_port = port;
+	memcpy(tcb.remote_ip, dest_ip, 4);
+	tcb.remote_port = dest_port;
 
 	// send a SYN packet 
 	// calloc gives zeroed out mem
@@ -126,30 +158,30 @@ int connect(ushort local, uchar *dest_ip, ushort dest_port)
 
 	tcphdr_t *hdr = (uchar *) ip + ip->ip_hdr_len * 4;
 
-	iss = sequence_gen();
-	snd_una = iss;
-	snd_nxt = iss + 1;
+	tcb.iss = sequence_gen();
+	tcb.snd_una = tcb.iss;
+	tcb.snd_nxt = tcb.iss + 1;
 
 	getsrcaddr(gpkt, dest_ip);
 	uchar tmpbuf[4] = {0};
 	COPYIP(ip->ip_dst, gHtonl(tmp, dest_ip));
 
-	hdr->src = htons(local_port);
-	hdr->dst = htons(remote_port);
-	hdr->seq = htonl(iss);
+	hdr->src = htons(tcb.local_port);
+	hdr->dst = htons(tcb.remote_port);
+	hdr->seq = htonl(tcb.iss);
 	hdr->data_off = 5;
 	hdr->flags = SYN;
 	hdr->checksum = 0;
 
-	recv_win = BUFSIZE;
-	hdr->win = recv_win;
+	tcb.recv_win = BUFSIZE;
+	hdr->win = tcb.recv_win;
 
 	hdr->checksum = htons(tcp_checksum(ip->ip_src, ip->ip_dst, hdr, 0));
 	if (hdr->checksum == 0) {
 		hdr->checksum = ~hdr->checksum;
 	}				
 
-	IPOutgoingPacket(gpkt, remote_ip, hdr->data_off * 4, 1, TCP_PROTOCOL);
+	IPOutgoingPacket(gpkt, tcb.remote_ip, hdr->data_off * 4, 1, TCP_PROTOCOL);
 
 	set_state(SYN_SENT);
 
@@ -206,10 +238,10 @@ void send_synack(gpacket_t *gpkt)
 	hdr->src = hdr-src;
 	hdr->src = tmp_port;
 
-	hdr->ack = htonl(recv_nxt);
-	hdr->seq = htonl(iss);
+	hdr->ack = htonl(tcb.recv_nxt);
+	hdr->seq = htonl(tcb.iss);
 	hdr->data_off = 5;
-	hdr->win = htonl(recv_win);
+	hdr->win = htonl(tcb.recv_win);
 	hdr->urg = 0;
 	hdr->checksum = 0;
 
@@ -239,10 +271,10 @@ void send_ack(gpacket_t *gpkt)
         hdr->src = hdr-src;
         hdr->src = tmp_port;
 	
-	hdr->ack = htonl(recv_nxt);
-        hdr->seq = htonl(snd_nxt);
+	hdr->ack = htonl(tcb.recv_nxt);
+        hdr->seq = htonl(tcb.snd_nxt);
         hdr->data_off = 5;
-        hdr->win = htonl(recv_win);
+        hdr->win = htonl(tcb.recv_win);
         hdr->urg = 0;
         hdr->checksum = 0;
 
@@ -289,22 +321,22 @@ void incoming_listen(gpacket_t *gpkt)
 	// accept connection
 	if (hdr->flags & SYN) {
 
-		if (ntohs(hdr->dst) != local_port) {
+		if (ntohs(hdr->dst) != tcb.local_port) {
 			send_rst(gpkt);
 			return;
 		}
 
-		recv_nxt = ntohl(hdr->seq) + 1;
-		irs = ntohl(hdr->seq);
-		recv_win = BUFSIZE;
+		tcb.recv_nxt = ntohl(hdr->seq) + 1;
+		tcb.irs = ntohl(hdr->seq);
+		tcb.recv_win = BUFSIZE;
 
-		iss = sequence_gen();
-		snd_nxt = iss + 1;
-		snd_una = iss;
+		tcb.iss = sequence_gen();
+		tcb.snd_nxt = tcb.iss + 1;
+		tcb.snd_una = tcb.iss;
 
 		uchar tmp[4];
-		COPYIP(remote_ip, gNtohl(tmp, ip->ip_src))
-			remote_port = ntohs(hdr->dst);
+		COPYIP(tcb.remote_ip, gNtohl(tmp, ip->ip_src))
+			tcb.remote_port = ntohs(hdr->dst);
 
 		send_synack(gpkt);
 
@@ -322,7 +354,7 @@ void incoming_syn_sent(gpacket_t *gpkt)
 
 	// check if valid syn-ack
 	if (hdr->flags & ACK) {
-		if (ntohl(hdr->ack) != snd_nxt) {
+		if (ntohl(hdr->ack) != tcb.snd_nxt) {
 
 			if (hdr->flags & RST) {
 				free(gpkt);
@@ -344,12 +376,12 @@ void incoming_syn_sent(gpacket_t *gpkt)
 	}
 
 	else if (hdr->flags & SYN) {
-		recv_nxt = ntohl(hdr->seq) + 1;
-		recv_win--;
-		irs = ntohl(hdr->seq);
+		tcb.recv_nxt = ntohl(hdr->seq) + 1;
+		tcb.recv_win--;
+		tcb.irs = ntohl(hdr->seq);
 
 		if (valid_ack) {
-			snd_una = ntohl(hdr->ack);
+			tcb.snd_una = ntohl(hdr->ack);
 
 			send_ack(gpkt);
 			set_state(ESTABLISHED);
@@ -373,23 +405,23 @@ int check_if_tcp_acceptable(tcphdr_t *tcpHeader, uint16_t tcpLength)
 {
 	int accept  = 0; 
 
-	if ( tcpLength == 0 && recv_win == 0 )
+	if ( tcpLength == 0 && tcb.recv_win == 0 )
 	{
-		if ( hdr->seq == recv_nxt ) 
+		if ( hdr->seq == tcb.recv_nxt ) 
 		{
 			accept =  1; 
 		}
 	}
-	else if ( tcpLength == 0 && recv_win > 0 )
+	else if ( tcpLength == 0 && tcb.recv_win > 0 )
 	{
-		if ( recv_nxt <= hdr->seq < recv_nxt+recv_win ) 
+		if ( tcb.recv_nxt <= hdr->seq < tcb.recv_nxt+tcb.recv_win ) 
 		{
 			accept =  1; 
 		}
 	}
-	else if ( tcpLength > 0 && recv_win > 0 )
+	else if ( tcpLength > 0 && tcb.recv_win > 0 )
 	{
-		if ( (recv_nxt <= hdr->seq < recv_nxt + recv_win) || ( recv_nxt <= hdr->seq + tcpLength-1 < recv_nxt + recv_win) 
+		if ( (tcb.recv_nxt <= hdr->seq < tcb.recv_nxt + tcb.recv_win) || ( tcb.recv_nxt <= hdr->seq + tcpLength-1 < tcb.recv_nxt + tcb.recv_win) 
 		{
 			accept = 1; 
 		}
@@ -423,7 +455,7 @@ void tcp_recv(gpacket_t *gpkt)
 	{
 		incoming_closed(gpkt);
 	}	
-	else if (ntohs(hdr->dest) != local_port) 
+	else if (ntohs(hdr->dest) != tcb.local_port) 
 	{
 		if (hdr->flags & RST) 
 		{
@@ -479,7 +511,7 @@ void tcp_recv(gpacket_t *gpkt)
 				}
 				else if ( read_state() == ESTABLISHED ) 
 				{
-					snd_una = hdr->ack;
+					tcb.snd_una = hdr->ack;
 					//TODO remove segments in the retransmission queue that have been ack
 					//TODO sent positive ack to user for buffers that have been sent and acked (send buffer should be retured with OK" response)
 					//TODO update window
@@ -502,7 +534,7 @@ void tcp_recv(gpacket_t *gpkt)
 				}
 				else if ( read_state() == ESTABLISHED ) 
 				{
-					if (hdr->ack > snd_nxt )
+					if (hdr->ack > tcb.snd_nxt )
 					{	
 						//TODO send an ack drop the segment.....why?????
 					} 
