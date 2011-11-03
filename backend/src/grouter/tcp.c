@@ -28,7 +28,7 @@ struct tcb_t {
 	unsigned long snd_nxt;    // next
 	unsigned long snd_una;    // unacknowledged
 	unsigned long snd_win;    // window
-	unsigned long iss;        // inital sequence number
+	unsigned long iss;        // inital sequence number	
 
 	// for receive
 	unsigned long recv_nxt;   // next
@@ -146,7 +146,14 @@ uint32_t sequence_gen()
 	return (uint32_t) clock();
 }
 
+int tcp_send(uchar *buf, int len)
+{
+	if (write_snd_buf(buf, len) == -1) {
+		return -1;
+	}
 
+	
+}
 
 // returns 0 on error
 int listen(ushort port)
