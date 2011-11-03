@@ -36,7 +36,7 @@
 #include <stdlib.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-
+#include "tcp.h"
 
 Map *cli_map;
 Mapper *cli_mapper;
@@ -830,6 +830,11 @@ void ncCmd()
 		return;
 	}
 
+	if (strcmp(tok, "-t") == 0) {
+		tcp_nc();
+		return;
+	}
+
 	if (strcmp(tok, "-l") == 0) {
 		tok = strtok(NULL, " \n");
 
@@ -886,6 +891,17 @@ void ncCmd()
 			printf("%s", "Error, too much data.\n");
 		}	
 	}
+}
+
+void tcp_nc()
+{
+	uint8_t ip[4];
+	char *tok = strtok(NULL, " \n");
+	Dot2IP(tok, ip);
+	tok = strtok(NULL, " \n");
+	uint16_t port = atoi(tok);
+	
+	tcp_connect(22000, ip, port);	
 }
 
 /*

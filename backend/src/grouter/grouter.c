@@ -75,6 +75,7 @@ int main(int ac, char *av[])
 	ARPInit();
 	IPInit();
 	init_ports();
+	init_tcp();
 
 	/*uint32_t dest_ip = 12319800;
 	uint16_t dest_port = 123;

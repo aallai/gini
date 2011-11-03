@@ -73,6 +73,6 @@ void spolicyCmd();
 void classCmd();
 void filterCmd();
 void ncCmd();
-
+void tcp_nc();
 
 #endif

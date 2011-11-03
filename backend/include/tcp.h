@@ -1,6 +1,7 @@
 #ifndef __TCP_H__
 #define __TCP_H__
 
+#include "grouter.h"
 #include "message.h"
 #include <stdint.h>
 
@@ -57,18 +58,18 @@ enum
 #define TCP_PHEADER_SIZE 12
 
 // a port on which to listen on, creates port for you
-int listen(ushort port);
+int tcp_listen(ushort port);
 
 // creates local port for you
-int connect(ushort local, uchar *dest_ip, ushort dest_port);
+int tcp_connect(ushort local, uchar *dest_ip, ushort dest_port);
 
 // only one connection at a time for now, must call connect first
-int send(char *buf, int len);
+int tcp_send(uchar *buf, int len);
 
 void tcp_recv(gpacket_t *gpkt);
 
 // close current connection
-int close(void);
+int tcp_close(void);
 
 // receive is done on port, see ports.h
 
