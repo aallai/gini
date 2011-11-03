@@ -137,7 +137,7 @@ uint16_t tcp_checksum(uchar *src, uchar *dst, tcphdr_t *hdr, int data_len)
 	memcpy(buf, src, 4);
 	memcpy(buf + 4, dst, 4);
 	buf[9] = TCP_PROTOCOL;
-	((ushort *) buf)[5] = hdr->data_off * 4 + data_len;
+	((ushort *) buf)[5] = htons(hdr->data_off * 4 + data_len);
 
 	memcpy(buf + TCP_PHEADER_SIZE, hdr, hdr->data_off * 4);
 	memcpy(buf + TCP_PHEADER_SIZE + hdr->data_off * 4, (uchar *) hdr + hdr->data_off * 4, data_len);
@@ -451,18 +451,18 @@ void incoming_syn_sent(gpacket_t *gpkt)
 
 
 //checks if a tcp packet is acceptable
-int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcpLength)
+int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcp_data_len)
 {	
 	int accept  = 0; 
 
-	if ( tcpLength == 0 && tcb.recv_win == 0 )
+	if ( tcp_data_len == 0 && tcb.recv_win == 0 )
 	{
 		if ( hdr->seq == tcb.recv_nxt ) 
 		{
 			accept =  1; 
 		}
 	}
-	else if ( tcpLength == 0 && tcb.recv_win > 0 )
+	else if ( tcp_data_len == 0 && tcb.recv_win > 0 )
 	{
 		if ( (tcb.recv_nxt <= hdr->seq) && (hdr->seq < tcb.recv_nxt+tcb.recv_win )) 
 		{
@@ -472,9 +472,9 @@ int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcpLength)
 			}
 		}
 	}
-	else if ( tcpLength > 0 && tcb.recv_win > 0 )
+	else if ( tcp_data_len > 0 && tcb.recv_win > 0 )
 	{
-		if ( ((tcb.recv_nxt <= hdr->seq) && (hdr->seq < tcb.recv_nxt + tcb.recv_win)) || ((tcb.recv_nxt <= hdr->seq + tcpLength-1) && (hdr->seq  < tcb.recv_nxt + tcb.recv_win)) ) 
+		if ( ((tcb.recv_nxt <= hdr->seq) && (hdr->seq < tcb.recv_nxt + tcb.recv_win)) || ((tcb.recv_nxt <= hdr->seq + tcp_data_len-1) && (hdr->seq  < tcb.recv_nxt + tcb.recv_win)) ) 
 		{
 			accept = 1; 
 		}
@@ -499,7 +499,7 @@ void tcp_recv(gpacket_t *gpkt)
 	uint16_t ipPacketLength = ntohs(ip->ip_pkt_len); 
 
         tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
-	uint16_t tcpLength = ipPacketLength - hdr->data_off * 4; 
+	uint16_t tcp_data_len = ipPacketLength - ip->ip_hdr_len * 4 - hdr->data_off * 4; 
 	uint8_t tcpFlags = hdr->flags;
 
 	// je suis le rfc, derniere section qui explique etape par etape
@@ -507,7 +507,13 @@ void tcp_recv(gpacket_t *gpkt)
 	if (read_state() == CLOSED) 
 	{
 		incoming_closed(gpkt);
-	}	
+	}
+
+	else if (tcp_checksum(ip->ip_src, ip->ip_dst, hdr, tcp_data_len) != 0) {
+		free(gpkt);
+		printf("Bad checksum\n");
+	}
+	
 	else if (ntohs(hdr->dst) != tcb.local_port) 
 	{
 		if (hdr->flags & RST) 
@@ -529,7 +535,7 @@ void tcp_recv(gpacket_t *gpkt)
 	}
 	else
 	{
-		packet_acceptable = check_if_tcp_acceptable(hdr,tcpLength); //part of 1st check 
+		packet_acceptable = check_if_tcp_acceptable(hdr,tcp_data_len); //part of 1st check 
 		
 		if (packet_acceptable == 1)
 		{
