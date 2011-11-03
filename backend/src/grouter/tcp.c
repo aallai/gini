@@ -533,7 +533,7 @@ void tcp_recv(gpacket_t *gpkt)
 		
 		if (packet_acceptable == 1)
 		{
-			if ( CHECK_BIT(tcpFlags, 3) != 0 ) //2nd check
+			if ( CHECK_BIT(tcpFlags, 3) != 0 ) //2nd check (rst_bit) 
 			{
 				if ( read_state() == SYN_RECV )
 				{
@@ -542,21 +542,21 @@ void tcp_recv(gpacket_t *gpkt)
 				}
 				else if ( (read_state() == ESTABLISHED) || (read_state() == FIN_WAIT1) || (read_state() == FIN_WAIT2) ||(read_state() == CLOSE_WAIT) )
 				{
-					// TODO notify user : connection reset
+					verbose(2, "[tcp_recv]:: Connection Reset");
 					send_rst(gpkt);
 				}
-				// TODO delete tcb 
+				reset_tcp_state();
 				set_state(CLOSED);
 				return;
 			}
-			else if ( CHECK_BIT(tcpFlags, 2) != 0) // 4th check TODO 3rd check missing : what is security and precedence?
+			else if ( CHECK_BIT(tcpFlags, 2) != 0) // 4th check (SYN bit) 
 			{
 				send_rst(gpkt);
-				// TODO send user connection reset
+				verbose(2, "[tcp_recv]:: Connection Reset");
 				set_state(CLOSED);
-				// TODO delete tcb
+				reset_tcp_state();
 			}
-			else if (CHECK_BIT(tcpFlags, 5) != 0 ) // part of 5th check
+			else if (CHECK_BIT(tcpFlags, 5) != 0 ) // part of 5th check (ACK bit) 
 			{
 				if ( read_state() == SYN_RECV )
 				{
@@ -574,11 +574,11 @@ void tcp_recv(gpacket_t *gpkt)
 		}
 		else 
 		{
-			if ( CHECK_BIT(tcpFlags, 3) == 0 ) //part of 1st check
+			if ( CHECK_BIT(tcpFlags, 3) == 0 ) //part of 1st check (rst bit) 
 			{
-				//TODO send <SEQ=SND.NXT><ACK=RVC.NXT><CTL=ACK>
+				send_ack(gpkt);
 			}
-			else if (CHECK_BIT(tcpFlags, 5) != 0 ) // part of 5h check 
+			else if (CHECK_BIT(tcpFlags, 5) != 0 ) // part of 5h check (ACK bit)
 			{
 				if ( read_state() == SYN_RECV )
 				{
