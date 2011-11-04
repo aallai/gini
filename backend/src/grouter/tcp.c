@@ -482,13 +482,119 @@ int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcp_data_len)
 	return accept; 
 }
 
-void update_window(tcphdr_t *tcpHeader)
+void ack_update_window(tcphdr_t *tcpHeader)
 {
-	/*if ( ) 
-	{
-	
-	}*/
+	verbose(2, "[tcp_recv]:: Packet Acknowledged:");
+	printf("%d",tcb.snd_una);
+	tcb.snd_una = hdr->ack;
 }
+
+
+void incoming_reset(gpacket_t *gpkt)
+{
+	if ( read_state() == SYN_RECV )
+	{
+		// TODO if was syn-set state then 
+		// notify user "connection refused
+	}
+	else if ( (read_state() == ESTABLISHED) || (read_state() == FIN_WAIT1) || (read_state() == FIN_WAIT2) ||(read_state() == CLOSE_WAIT) )
+	{
+		verbose(2, "[tcp_recv]:: Connection Reset");
+		send_rst(gpkt);
+	}
+	reset_tcp_state();
+	set_state(CLOSED);
+}
+
+
+void incoming_misplaced_syn(gpacket_t *gpkt)
+{
+	send_rst(gpkt);
+	verbose(2, "[tcp_recv]:: Connection Reset");
+	set_state(CLOSED);
+	reset_tcp_state();
+}
+
+void start_timewait_timer()
+{
+}
+
+void check4TimeWaitTimeOut()
+{
+	int timeout = 1;
+	if (timeout)
+	{
+		set_state(CLOSED); 
+		reset_tcp_state();
+		verbose(2, "[tcp_recv]:: WAIT TIMEOUT");
+	}
+}
+
+int incoming_ack(gpacket_t *gpkt)
+{
+	int continue_processing = 1;
+
+	if ( read_state() == SYN_RECV )
+	{
+		set_state(ESTABLISHED);
+	}
+	else if ( (read_state() == ESTABLISHED) || (read_state() == CLOSE_WAIT) ) 
+	{
+		ack_update_window(hdr);
+	}
+	else if ( read_state() ==  FIN_WAIT1 )
+	{
+		ack_update_window(hdr);
+		set_state(FIN_WAIT2);
+	}
+	else if ( read_state() ==  FIN_WAIT2 )
+	{
+		ack_update_window(hdr);
+		verbose(2, "[tcp_recv]:: Connection Closed");	
+	}
+	else if ( read_state() == CLOSING)
+	{
+		ack_update_window(hdr);
+		set_state(TIME_WAIT);
+	}
+	else if ( read_state() == LAST_ACK ) 
+	{
+		reset_tcp_state();
+		set_state(CLOSED);
+		continue_processing = 0;
+	}
+	else if ( read_state() == TIME_WAIT ) 
+	{
+		send_ack(gpkt);
+		//TODO: restart timer!
+	}
+	return continue_processing;					
+}
+
+
+void incoming_fin() 
+{
+	if ( (read_state() == SYN_RECV) || (read_state() == ESTABLISHED) )
+	{
+		set_state(CLOSE_WAIT);
+	}
+	else if ( read_state() == FIN_WAIT1 ) 
+	{
+		// ENTER CLOSING STATE IF NOT ACKED...WONT HAPPEN
+		start_timewait_timer();
+		set_state(TIME_WAIT);
+	}
+	else if ( read_state() == FIN_WAIT2 ) 
+	{
+		start_timewait_timer();
+		set_state(TIME_WAIT);
+	}
+	else if ( read_state() == TIME_WAIT ) 
+	{
+		start_timewait_timer();
+	}
+}
+
 
 
 void tcp_recv(gpacket_t *gpkt)
@@ -500,7 +606,10 @@ void tcp_recv(gpacket_t *gpkt)
 
         tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
 	uint16_t tcp_data_len = ipPacketLength - ip->ip_hdr_len * 4 - hdr->data_off * 4; 
-	uint8_t tcpFlags = hdr->flags;
+
+	uint8_t *data = (uint8_t *) hdr + TCP_HEADER_SIZE;
+   	int dataLength = ntohs(hdr->len) - TCP_HEADER_SIZE;
+	
 
 	// je suis le rfc, derniere section qui explique etape par etape
 
@@ -539,52 +648,49 @@ void tcp_recv(gpacket_t *gpkt)
 		
 		if (packet_acceptable == 1)
 		{
-			if ( CHECK_BIT(tcpFlags, 3) != 0 ) //2nd check (rst_bit) 
+			if ( hdr->flags & RST ) //2nd check (rst_bit) 
 			{
-				if ( read_state() == SYN_RECV )
-				{
-					// TODO if was syn-set state then 
-					// notify user "connection refused
-				}
-				else if ( (read_state() == ESTABLISHED) || (read_state() == FIN_WAIT1) || (read_state() == FIN_WAIT2) ||(read_state() == CLOSE_WAIT) )
-				{
-					verbose(2, "[tcp_recv]:: Connection Reset");
-					send_rst(gpkt);
-				}
-				reset_tcp_state();
-				set_state(CLOSED);
+				incoming_reset(gpkt);
 				return;
 			}
-			else if ( CHECK_BIT(tcpFlags, 2) != 0) // 4th check (SYN bit) 
+
+			if (hdr->flags & SYN) // 4th check (SYN bit) 
 			{
-				send_rst(gpkt);
-				verbose(2, "[tcp_recv]:: Connection Reset");
-				set_state(CLOSED);
-				reset_tcp_state();
+				incoming_misplaced_syn(gpkt);
+				return;
 			}
-			else if (CHECK_BIT(tcpFlags, 5) != 0 ) // part of 5th check (ACK bit) 
+
+			if(hdr->ack !=0)
 			{
-				if ( read_state() == SYN_RECV )
+				if (hdr->flags & ACK == 0 ) // part of 5th check (ACK bit) 
 				{
-					set_state(ESTABLISHED);
+					return;
 				}
-				else if ( read_state() == ESTABLISHED ) 
+							
+				if( incoming_ack(gpkt) == 0);
 				{
-					tcb.snd_una = hdr->ack;
-					//TODO remove segments in the retransmission queue that have been ack
-					//TODO sent positive ack to user for buffers that have been sent and acked (send buffer should be retured with OK" response)
-					//TODO update window
-					//update_window(hdr);
-				}	
-			} 
+					return;
+				}		
+			}
+			
+			if ( (read_state() == ESTABLISHED) || (read_state() == FIN_WAIT1) || (read_state() == FIN_WAIT2) ) 
+			{
+				write_data(hdr->dest, TCP_PROTOCOL, data, dataLength);
+				send_ack(gpkt);
+			}
+			
+			if ( hdr->flags & FIN ) 
+			{
+				incoming_fin();
+			}
 		}
 		else 
 		{
-			if ( CHECK_BIT(tcpFlags, 3) == 0 ) //part of 1st check (rst bit) 
+			if ( hdr->flags & RST == 0 ) //part of 1st check (rst bit) 
 			{
 				send_ack(gpkt);
 			}
-			else if (CHECK_BIT(tcpFlags, 5) != 0 ) // part of 5h check (ACK bit)
+			else if ( hdr->flags & ACK ) // part of 5h check (ACK bit)
 			{
 				if ( read_state() == SYN_RECV )
 				{
@@ -596,6 +702,7 @@ void tcp_recv(gpacket_t *gpkt)
 					if (hdr->ack > tcb.snd_nxt )
 					{	
 						//TODO send an ack drop the segment.....why?????
+						send_ack(pkt);
 					} 
 				}
 			} 
