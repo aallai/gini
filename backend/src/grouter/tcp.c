@@ -179,7 +179,7 @@ int tcp_listen(ushort port)
 	}	
 
 	tcb.local_port = port;
-	tcp.type = PASSIVE;
+	tcb.type = PASSIVE;
 
 	printf("state -> LISTEN\n");
 	set_state(LISTEN);
@@ -527,12 +527,18 @@ void check4TimeWaitTimeOut()
 	}
 }
 
-int process_ack(unsigned long ack, unsigned long seq, ushort win)
+int process_ack(gpacket_t *gpkt)
 {
-	if (tcb.snd_una < ack) && (ack <= tcb_snd_nxt) {
+	ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
+	tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
+	unsigned long ack = ntohl(hdr->ack);
+        unsigned long seq = ntohl(hdr->seq);
+        ushort win = ntohs(hdr->win);
+
+	if (tcb.snd_una < ack && ack <= tcb.snd_nxt) {
 		tcb.snd_una = ack;            // update acked data
 		// update window
-		if (tcb.snd_wl1 < seq) || (tcb.snd_wl1 == seq && tcb.snd_wl2 <= ack) {
+		if ((tcb.snd_wl1 < seq) || (tcb.snd_wl1 == seq && tcb.snd_wl2 <= ack)) {
 			tcb.snd_win = win;
 			tcb.snd_wl1 = seq;
 			tcb.snd_wl2 = ack;
@@ -556,13 +562,10 @@ int incoming_ack(gpacket_t *gpkt)
 	uint16_t ipPacketLength = ntohs(ip->ip_pkt_len); 
 
 	tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
-	unsigned long ack = ntohl(hdr->ack);
-	unsigned long seq = ntohl(hdr->seq);
-	ushort win = ntohs(hdr->win);
 
 	if ( read_state() == SYN_RECV )
 	{
-		if (ack == tcb.snd_una) {
+		if (htonl(hdr->ack) == tcb.snd_una) {
 			set_state(ESTABLISHED);
 		} else {
 			send_rst(gpkt);
@@ -571,18 +574,18 @@ int incoming_ack(gpacket_t *gpkt)
 	}
 	else if ( (read_state() == ESTABLISHED) || (read_state() == CLOSE_WAIT || (read_state() == FIN_WAIT2)) ) 
 	{
-		proceed = process_ack(ack, seq, win);
+		proceed = process_ack(gpkt);
 	}
 	else if ( read_state() ==  FIN_WAIT1 )
 	{
-		proceed = process_ack(ack, seq, win);                     
+		proceed = process_ack(gpkt);                     
 		if (proceed) {
 			set_state(FIN_WAIT2);
 		} 
 	}
 	else if ( read_state() == CLOSING)
 	{
-		proceed = process_ack(ack, seq, win);
+		proceed = process_ack(gpkt);
 
 		if (proceed) {
 			set_state(TIME_WAIT);
@@ -590,7 +593,7 @@ int incoming_ack(gpacket_t *gpkt)
 	}
 	else if ( read_state() == LAST_ACK ) 
 	{
-		proceed = process_ack(ack, seq, win);
+		proceed = process_ack(gpkt);
 
 		if (proceed) {
 			reset_tcb_state();
