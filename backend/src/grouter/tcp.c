@@ -487,7 +487,7 @@ int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcp_data_len)
 	return accept; 
 }
 
-void ack_update_window(tcphdr_t *tcpHeader)
+void ack_update_window(tcphdr_t *hdr)
 {
 	verbose(2, "[tcp_recv]:: Packet Acknowledged:");
 	printf("%d",tcb.snd_una);
@@ -507,7 +507,7 @@ void incoming_reset(gpacket_t *gpkt)
 		verbose(2, "[tcp_recv]:: Connection Reset");
 		send_rst(gpkt);
 	}
-	reset_tcp_state();
+	reset_tcb_state();
 	set_state(CLOSED);
 }
 
@@ -517,7 +517,7 @@ void incoming_misplaced_syn(gpacket_t *gpkt)
 	send_rst(gpkt);
 	verbose(2, "[tcp_recv]:: Connection Reset");
 	set_state(CLOSED);
-	reset_tcp_state();
+	reset_tcb_state();
 }
 
 void start_timewait_timer()
@@ -530,7 +530,7 @@ void check4TimeWaitTimeOut()
 	if (timeout)
 	{
 		set_state(CLOSED); 
-		reset_tcp_state();
+		reset_tcb_state();
 		verbose(2, "[tcp_recv]:: WAIT TIMEOUT");
 	}
 }
@@ -538,6 +538,10 @@ void check4TimeWaitTimeOut()
 int incoming_ack(gpacket_t *gpkt)
 {
 	int continue_processing = 1;
+	ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
+	uint16_t ipPacketLength = ntohs(ip->ip_pkt_len); 
+
+        tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
 
 	if ( read_state() == SYN_RECV )
 	{
@@ -564,7 +568,7 @@ int incoming_ack(gpacket_t *gpkt)
 	}
 	else if ( read_state() == LAST_ACK ) 
 	{
-		reset_tcp_state();
+		reset_tcb_state();
 		set_state(CLOSED);
 		continue_processing = 0;
 	}
@@ -612,10 +616,8 @@ void tcp_recv(gpacket_t *gpkt)
         tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
 	uint16_t tcp_data_len = ipPacketLength - ip->ip_hdr_len * 4 - hdr->data_off * 4; 
 
-	uint8_t *data = (uint8_t *) hdr + TCP_HEADER_SIZE;
-   	int dataLength = ntohs(hdr->len) - TCP_HEADER_SIZE;
+	uint8_t *data = (uint8_t *) hdr + sizeof(hdr);
 	
-
 	// je suis le rfc, derniere section qui explique etape par etape
 
 	if (read_state() == CLOSED) 
@@ -679,7 +681,7 @@ void tcp_recv(gpacket_t *gpkt)
 			
 			if ( (read_state() == ESTABLISHED) || (read_state() == FIN_WAIT1) || (read_state() == FIN_WAIT2) ) 
 			{
-				write_data(hdr->dest, TCP_PROTOCOL, data, dataLength);
+				write_data(hdr->dst, TCP_PROTOCOL, data, tcp_data_len);
 				send_ack(gpkt);
 			}
 			
@@ -706,7 +708,7 @@ void tcp_recv(gpacket_t *gpkt)
 					if (hdr->ack > tcb.snd_nxt )
 					{	
 						//TODO send an ack drop the segment.....why?????
-						send_ack(pkt);
+						send_ack(gpkt);
 					} 
 				}
 			} 
