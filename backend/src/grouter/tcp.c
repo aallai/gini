@@ -1,3 +1,4 @@
+
 #include "ports.h"
 #include "tcp.h"
 #include "ip.h"
@@ -19,7 +20,12 @@ void set_state(int);
 
 struct tcb_t {
 
-	int state;                // the actual connection state 
+	int state;                // the actual connection state
+
+#define PASSIVE 0
+#define ACTIVE 1
+
+	int type;                 // passive or active
 	pthread_mutex_t state_lock;
 
 	// ports, addresses
@@ -30,7 +36,9 @@ struct tcb_t {
 	// for send
 	unsigned long snd_nxt;    // next
 	unsigned long snd_una;    // unacknowledged
-	unsigned long snd_win;    // window
+	unsigned long snd_win;    // window (offset in sequence numbers)
+	unsigned long snd_wl1;	  // last seq # used to update window
+	unsigned long snd_wl2;    // last ack used to update window
 	unsigned long iss;        // inital sequence number	
 
 	// for receive
@@ -38,7 +46,6 @@ struct tcb_t {
 	unsigned long recv_win;   // window
 	unsigned long irs;        // initial sequence number
 
-	#define BUFSIZE 65535
 
 	int snd_head;
 	uchar snd_buf[BUFSIZE];
@@ -50,7 +57,7 @@ void reset_tcb_state()
 	memset(&tcb, 0, sizeof(struct tcb_t));
 	set_state(CLOSED);
 	pthread_mutex_init(&tcb.state_lock, NULL);
-	tcb.recv_win = 1024;
+	tcb.recv_win = DEFAULT_WINSIZE;
 }
 
 void init_tcp()
@@ -86,7 +93,7 @@ int write_snd_buf(uchar *data, int len)
 /** copies up to len bytes of unacknowledged data into buf, will probably be useful
  * for example if snd_win is smaller than total amount of unacked data, returns amount
  * of bytes copied (may be smaller than len if there is not that much unacked data!)
-**/
+ **/
 int copy_una(uchar *buf, int len)
 {
 	long available = tcb.snd_nxt - tcb.snd_una;
@@ -106,12 +113,12 @@ int copy_unsent(uchar *buf, int len)
 	long available = tcb.snd_head - tcb.snd_nxt;
 
 	if (available < len) {
-                memcpy(buf, tcb.snd_buf + seq_to_off(tcb.snd_nxt, tcb.iss), available);
-                return available;
-        } else {
-                memcpy(buf, tcb.snd_buf + seq_to_off(tcb.snd_nxt, tcb.iss), len);
-                return len;
-        } 	
+		memcpy(buf, tcb.snd_buf + seq_to_off(tcb.snd_nxt, tcb.iss), available);
+		return available;
+	} else {
+		memcpy(buf, tcb.snd_buf + seq_to_off(tcb.snd_nxt, tcb.iss), len);
+		return len;
+	} 	
 }
 
 int read_state() 
@@ -161,7 +168,7 @@ int tcp_send(uchar *buf, int len)
 		return -1;
 	}
 
-	
+
 }
 
 // returns 0 on error
@@ -172,6 +179,7 @@ int tcp_listen(ushort port)
 	}	
 
 	tcb.local_port = port;
+	tcp.type = PASSIVE;
 
 	printf("state -> LISTEN\n");
 	set_state(LISTEN);
@@ -193,6 +201,7 @@ int tcp_connect(ushort local, uchar *dest_ip, ushort dest_port)
 	tcb.local_port = local;
 	memcpy(tcb.remote_ip, dest_ip, 4);
 	tcb.remote_port = dest_port;
+	tcb.type = ACTIVE;
 
 	// send a SYN packet 
 	// calloc gives zeroed out mem
@@ -221,9 +230,7 @@ int tcp_connect(ushort local, uchar *dest_ip, ushort dest_port)
 	hdr->data_off = 5;
 	hdr->flags = SYN;
 	hdr->checksum = 0;
-
-	tcb.recv_win = BUFSIZE;
-	hdr->win = tcb.recv_win;
+	hdr->win = htons(tcb.recv_win);
 
 	hdr->checksum = htons(tcp_checksum(ip->ip_src, ip->ip_dst, hdr, 0));
 	if (hdr->checksum == 0) {
@@ -291,7 +298,7 @@ void send_synack(gpacket_t *gpkt)
 	hdr->ack = htonl(tcb.recv_nxt);
 	hdr->seq = htonl(tcb.iss);
 	hdr->data_off = 5;
-	hdr->win = htonl(tcb.recv_win);
+	hdr->win = htons(tcb.recv_win);
 	hdr->urg = 0;
 	hdr->checksum = 0;
 
@@ -311,33 +318,33 @@ void send_synack(gpacket_t *gpkt)
 void send_ack(gpacket_t *gpkt)
 {
 	uchar tmp[4];
-        uint16_t tmp_port;
+	uint16_t tmp_port;
 
-        ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
-        tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);	
+	ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
+	tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);	
 
 
 
 	hdr->flags = ACK;
-        tmp_port = hdr->src;
-        hdr->src = hdr->src;
-        hdr->src = tmp_port;
-	
+	tmp_port = hdr->src;
+	hdr->src = hdr->dst;
+	hdr->dst = tmp_port;
+
 	hdr->ack = htonl(tcb.recv_nxt);
-        hdr->seq = htonl(tcb.snd_nxt);
-        hdr->data_off = 5;
-        hdr->win = htonl(tcb.recv_win);
-        hdr->urg = 0;
-        hdr->checksum = 0;
+	hdr->seq = htonl(tcb.snd_nxt);
+	hdr->data_off = 5;
+	hdr->win = htons(tcb.recv_win);
+	hdr->urg = 0;
+	hdr->checksum = 0;
 
 	// src and dst are flipped
-        hdr->checksum = htons(tcp_checksum(ip->ip_dst, ip->ip_src, hdr, 0));
+	hdr->checksum = htons(tcp_checksum(ip->ip_dst, ip->ip_src, hdr, 0));
 
-        if (hdr->checksum == 0) {
-                hdr->checksum = ~hdr->checksum;
-        }   
+	if (hdr->checksum == 0) {
+		hdr->checksum = ~hdr->checksum;
+	}   
 
-        IPOutgoingPacket(gpkt, gNtohl(tmp, ip->ip_src), hdr->data_off * 4, 0, TCP_PROTOCOL);
+	IPOutgoingPacket(gpkt, gNtohl(tmp, ip->ip_src), hdr->data_off * 4, 0, TCP_PROTOCOL);
 }
 
 // process incoming segment in closed state
@@ -387,7 +394,7 @@ void incoming_listen(gpacket_t *gpkt)
 		tcb.remote_port = ntohs(hdr->dst);
 
 		send_synack(gpkt);
-		
+
 		printf("state -> SYN_RECV\n");
 		set_state(SYN_RECV);
 		return;
@@ -398,7 +405,7 @@ void incoming_listen(gpacket_t *gpkt)
 void incoming_syn_sent(gpacket_t *gpkt)
 {
 	ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
-        tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
+	tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
 	int valid_ack = 0;
 
 	// check if valid syn-ack
@@ -427,7 +434,6 @@ void incoming_syn_sent(gpacket_t *gpkt)
 
 	else if (hdr->flags & SYN) {
 		tcb.recv_nxt = ntohl(hdr->seq) + 1;
-		tcb.recv_win--;
 		tcb.irs = ntohl(hdr->seq);
 
 		if (valid_ack) {
@@ -452,7 +458,8 @@ void incoming_syn_sent(gpacket_t *gpkt)
 
 
 
-//checks if a tcp packet is acceptable
+// only accept idealized segments starting at recv.next and smaller/equal to window size
+// according to rfc wording this is ok
 int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcp_data_len)
 {	
 	unsigned long seq = ntohl(hdr-seq);
@@ -468,18 +475,14 @@ int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcp_data_len)
 	}
 	else if ( tcp_data_len == 0 && tcb.recv_win > 0 )
 	{
-		if ( (tcb.recv_nxt <= seq) && (seq < tcb.recv_nxt+tcb.recv_win )) 
+		if (tcb.recv_nxt == seq)
 		{
-			if ( (tcb.recv_nxt <= seq) && (seq < tcb.recv_nxt+tcb.recv_win ) ) 
-			{
-				accept =  1; 
-			}
+			accept =  1; 
 		}
 	}
 	else if ( tcp_data_len > 0 && tcb.recv_win > 0 )
 	{
-		if ( ((tcb.recv_nxt <= seq) && (seq < tcb.recv_nxt + tcb.recv_win)) || 
-				((tcb.recv_nxt <= seq + tcp_data_len - 1) && (seq + tcp_data_len - 1  < tcb.recv_nxt + tcb.recv_win)) ) 
+		if ( (tcb.recv_nxt == seq) && (seq + tcp_data_len - 1  < tcb.recv_nxt + tcb.recv_win) ) 
 		{
 			accept = 1; 
 		}
@@ -487,28 +490,17 @@ int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcp_data_len)
 	return accept; 
 }
 
-void ack_update_window(tcphdr_t *hdr)
+void incoming_reset()
 {
-	verbose(2, "[tcp_recv]:: Packet Acknowledged:");
-	printf("%d",tcb.snd_una);
-	tcb.snd_una = hdr->ack;
-}
-
-
-void incoming_reset(gpacket_t *gpkt)
-{
-	if ( read_state() == SYN_RECV )
-	{
-		// TODO if was syn-set state then 
-		// notify user "connection refused
+	if ( read_state() == SYN_RECV && tcb.type == PASSIVE) {   // return to listen
+		ushort port = tcb.local_port;
+		reset_tcb_state();
+		tcb.local_port = port;
+		set_state(LISTEN);
+	} else {
+		reset_tcb_state();
+		set_state(CLOSED);
 	}
-	else if ( (read_state() == ESTABLISHED) || (read_state() == FIN_WAIT1) || (read_state() == FIN_WAIT2) ||(read_state() == CLOSE_WAIT) )
-	{
-		verbose(2, "[tcp_recv]:: Connection Reset");
-		send_rst(gpkt);
-	}
-	reset_tcb_state();
-	set_state(CLOSED);
 }
 
 
@@ -516,8 +508,8 @@ void incoming_misplaced_syn(gpacket_t *gpkt)
 {
 	send_rst(gpkt);
 	verbose(2, "[tcp_recv]:: Connection Reset");
-	set_state(CLOSED);
 	reset_tcb_state();
+	set_state(CLOSED);
 }
 
 void start_timewait_timer()
@@ -535,49 +527,84 @@ void check4TimeWaitTimeOut()
 	}
 }
 
+int process_ack(unsigned long ack, unsigned long seq, ushort win)
+{
+	if (tcb.snd_una < ack) && (ack <= tcb_snd_nxt) {
+		tcb.snd_una = ack;            // update acked data
+		// update window
+		if (tcb.snd_wl1 < seq) || (tcb.snd_wl1 == seq && tcb.snd_wl2 <= ack) {
+			tcb.snd_win = win;
+			tcb.snd_wl1 = seq;
+			tcb.snd_wl2 = ack;
+		}   
+
+		return 1; 
+
+	} else if (ack > tcb.snd_nxt) {
+		send_ack(gpkt);
+		return 0;
+	} else {
+		free(gpkt);
+		return 0;
+	}
+}
+
 int incoming_ack(gpacket_t *gpkt)
 {
-	int continue_processing = 1;
+	int proceed = 1;
 	ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
 	uint16_t ipPacketLength = ntohs(ip->ip_pkt_len); 
 
-        tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
+	tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
+	unsigned long ack = ntohl(hdr->ack);
+	unsigned long seq = ntohl(hdr->seq);
+	ushort win = ntohs(hdr->win);
 
 	if ( read_state() == SYN_RECV )
 	{
-		set_state(ESTABLISHED);
+		if (ack == tcb.snd_una) {
+			set_state(ESTABLISHED);
+		} else {
+			send_rst(gpkt);
+			return;
+		}
 	}
-	else if ( (read_state() == ESTABLISHED) || (read_state() == CLOSE_WAIT) ) 
+	else if ( (read_state() == ESTABLISHED) || (read_state() == CLOSE_WAIT || (read_state() == FIN_WAIT2)) ) 
 	{
-		ack_update_window(hdr);
+		proceed = process_ack(ack, seq, win);
 	}
 	else if ( read_state() ==  FIN_WAIT1 )
 	{
-		ack_update_window(hdr);
-		set_state(FIN_WAIT2);
-	}
-	else if ( read_state() ==  FIN_WAIT2 )
-	{
-		ack_update_window(hdr);
-		verbose(2, "[tcp_recv]:: Connection Closed");	
+		proceed = process_ack(ack, seq, win);                     
+		if (proceed) {
+			set_state(FIN_WAIT2);
+		} 
 	}
 	else if ( read_state() == CLOSING)
 	{
-		ack_update_window(hdr);
-		set_state(TIME_WAIT);
+		proceed = process_ack(ack, seq, win);
+
+		if (proceed) {
+			set_state(TIME_WAIT);
+		} 
 	}
 	else if ( read_state() == LAST_ACK ) 
 	{
-		reset_tcb_state();
-		set_state(CLOSED);
-		continue_processing = 0;
+		proceed = process_ack(ack, seq, win);
+
+		if (proceed) {
+			reset_tcb_state();
+			set_state(CLOSED);
+			proceed = 0;
+		}
 	}
 	else if ( read_state() == TIME_WAIT ) 
 	{
 		send_ack(gpkt);
 		//TODO: restart timer!
 	}
-	return continue_processing;					
+
+	return proceed;					
 }
 
 
@@ -613,11 +640,11 @@ void tcp_recv(gpacket_t *gpkt)
 	ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
 	uint16_t ipPacketLength = ntohs(ip->ip_pkt_len); 
 
-        tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
+	tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
 	uint16_t tcp_data_len = ipPacketLength - ip->ip_hdr_len * 4 - hdr->data_off * 4; 
 
-	uint8_t *data = (uint8_t *) hdr + sizeof(hdr);
-	
+	uint8_t *data = (uint8_t *) hdr + hdr->data_off * 4;
+
 	// je suis le rfc, derniere section qui explique etape par etape
 
 	if (read_state() == CLOSED) 
@@ -629,7 +656,7 @@ void tcp_recv(gpacket_t *gpkt)
 		free(gpkt);
 		printf("Bad checksum\n");
 	}
-	
+
 	else if (ntohs(hdr->dst) != tcb.local_port) 
 	{
 		if (hdr->flags & RST) 
@@ -652,43 +679,52 @@ void tcp_recv(gpacket_t *gpkt)
 	else
 	{
 		packet_acceptable = check_if_tcp_acceptable(hdr,tcp_data_len); //part of 1st check 
-		
+
 		if (packet_acceptable == 1)
 		{
 			if ( hdr->flags & RST ) //2nd check (rst_bit) 
 			{
-				incoming_reset(gpkt);
+				incoming_reset();
+				free(gpkt);
 			}
 
-			if (hdr->flags & SYN) // 4th check (SYN bit) 
+			else if (hdr->flags & SYN) // 4th check (SYN bit) 
 			{
 				incoming_misplaced_syn(gpkt);
 				return;
 			}
 
-			if(hdr->ack !=0)
-			{
-				if (hdr->flags & ACK == 0 ) // part of 5th check (ACK bit) 
-				{
-					return;
-				}
-							
+			else if (hdr->flags & ACK) { // part of 5th check (ACK bit) 
+
 				if( incoming_ack(gpkt) == 0);
 				{
 					return;
-				}		
+				}
+
+				if ( (read_state() == ESTABLISHED) || (read_state() == FIN_WAIT1) || (read_state() == FIN_WAIT2) )
+				{
+
+					// if our pipe is full, put window to zero
+					// good thing other TCPs obey the robustness principle! 
+					if (write_data(tcb.local_port, TCP_PROTOCOL, data, tcp_data_len) < tcp_data_len) {
+						tcb.recv_win = 0;
+					} else {
+						tcb.recv_win = DEFAULT_WINSIZE;
+						tcb.recv_nxt += tcp_data_len;
+					}
+					send_ack(gpkt);
+				}
+
+				if ( hdr->flags & FIN )
+				{
+					incoming_fin();
+				}
+
+
+			} else {
+				free(gpkt);
 			}
-			
-			if ( (read_state() == ESTABLISHED) || (read_state() == FIN_WAIT1) || (read_state() == FIN_WAIT2) ) 
-			{
-				write_data(hdr->dst, TCP_PROTOCOL, data, tcp_data_len);
-				send_ack(gpkt);
-			}
-			
-			if ( hdr->flags & FIN ) 
-			{
-				incoming_fin();
-			}
+
 		}
 		else 
 		{
