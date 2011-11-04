@@ -317,6 +317,11 @@ int IPProcessMyPacket(gpacket_t *in_pkt)
 			udp_recv(in_pkt);
 			return EXIT_SUCCESS;
 		}
+
+		if (ip_pkt->ip_prot == TCP_PROTOCOL) {
+			tcp_recv(in_pkt);
+			return EXIT_SUCCESS;
+		}
 	}
 	return EXIT_FAILURE;
 }

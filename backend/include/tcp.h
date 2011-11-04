@@ -68,6 +68,9 @@ int tcp_send(uchar *buf, int len);
 
 void tcp_recv(gpacket_t *gpkt);
 
+// get connection state
+int read_state();
+
 // close current connection
 int tcp_close();
 
