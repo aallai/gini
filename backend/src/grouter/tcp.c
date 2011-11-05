@@ -463,7 +463,7 @@ void incoming_syn_sent(gpacket_t *gpkt)
 // according to rfc wording this is ok
 int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcp_data_len)
 {	
-	unsigned long seq = ntohl(hdr-seq);
+	unsigned long seq = ntohl(hdr->seq);
 
 	int accept  = 0; 
 
@@ -476,6 +476,8 @@ int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcp_data_len)
 	}
 	else if ( tcp_data_len == 0 && tcb.recv_win > 0 )
 	{
+		printf("Case 2\n");
+
 		if (tcb.recv_nxt == seq)
 		{
 			accept =  1; 
@@ -566,11 +568,12 @@ int incoming_ack(gpacket_t *gpkt)
 
 	if ( read_state() == SYN_RECV )
 	{
-		if (htonl(hdr->ack) == tcb.snd_una) {
+		if (tcb.snd_una <= ntohl(hdr->ack) && ntohl(hdr->ack) <= tcb.snd_nxt)  {
 			printf("state -> ESATBLISHED\n");
 			set_state(ESTABLISHED);
 		} else {
 			send_rst(gpkt);
+			printf("incoming_ack() : reset\n");
 			return;
 		}
 	}
@@ -671,6 +674,7 @@ void tcp_recv(gpacket_t *gpkt)
 		else 
 		{
 			send_rst(gpkt);
+			printf("tcp_recv() : wrong port, reset.\n");
 		}
 	}
 	else if (read_state() == LISTEN) 
@@ -724,36 +728,17 @@ void tcp_recv(gpacket_t *gpkt)
 				{
 					incoming_fin();
 				}
-
-
 			} else {
 				free(gpkt);
 			}
-
-		}
-		else 
-		{
+		} else {
 			if ( hdr->flags & RST == 0 ) //part of 1st check (rst bit) 
 			{
 				send_ack(gpkt);
 			}
-			else if ( hdr->flags & ACK ) // part of 5h check (ACK bit)
-			{
-				if ( read_state() == SYN_RECV )
-				{
-					//TODO dontforget to ask alex is send reset => <SEQ=SEQ.ACK><CST=RST>
-					send_rst(gpkt);
-				}
-				else if ( read_state() == ESTABLISHED ) 
-				{
-					if (hdr->ack > tcb.snd_nxt )
-					{	
-						//TODO send an ack drop the segment.....why?????
-						send_ack(gpkt);
-					} 
-				}
-			} 
-			return;
+			else {
+				send_rst(gpkt);
+			}
 		}
 	}
 }
