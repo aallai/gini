@@ -1,3 +1,4 @@
+
 /*
  * cli.c (Command line handler for the GINI router)
  * This file contains the functions that implement the CLI.
@@ -37,7 +38,8 @@
 #include <stdlib.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-
+#include "tcp.h"
+#include "unistd.h"
 
 Map *cli_map;
 Mapper *cli_mapper;
@@ -241,48 +243,32 @@ void CLIProcessCmds(FILE *fp, int online)
 	{
 		switch (state)
 		{
-		case PROGRAM:
-			if (cur_line[0] == CARRIAGE_RETURN)
-				break;
-			if (cur_line[0] == LINE_FEED)
-				break;
-			if (cur_line[0] == COMMENT_CHAR)
-				state = COMMENT;
-			else if ((strlen(cur_line) > 2) && (cur_line[strlen(cur_line)-2] == CONTINUE_CHAR))
-			{
-				state = JOIN;
-				strcat(full_line, cur_line);
-			}
-			else
-			{
-				strcat(full_line, cur_line);
-				if (strlen(full_line) > 0)
-					parseACLICmd(full_line);
-				full_line[0] = '\0';
-			}
-			lineno++;
-			break;
-		case JOIN:
-			full_line[strlen(full_line)-2] = '\0';
-			if (cur_line[strlen(cur_line)-2] == CONTINUE_CHAR)
-				strcat(full_line, cur_line);
-			else
-			{
-				state = PROGRAM;
-				strcat(full_line, cur_line);
-				if (strlen(full_line) > 0)
-					parseACLICmd(full_line);
-				full_line[0] = '\0';
-			}
-			break;
-		case COMMENT:
-			if (cur_line[0] != COMMENT_CHAR)
-			{
-				if (cur_line[strlen(cur_line)-2] == CONTINUE_CHAR)
+			case PROGRAM:
+				if (cur_line[0] == CARRIAGE_RETURN)
+					break;
+				if (cur_line[0] == LINE_FEED)
+					break;
+				if (cur_line[0] == COMMENT_CHAR)
+					state = COMMENT;
+				else if ((strlen(cur_line) > 2) && (cur_line[strlen(cur_line)-2] == CONTINUE_CHAR))
 				{
 					state = JOIN;
 					strcat(full_line, cur_line);
-				} else
+				}
+				else
+				{
+					strcat(full_line, cur_line);
+					if (strlen(full_line) > 0)
+						parseACLICmd(full_line);
+					full_line[0] = '\0';
+				}
+				lineno++;
+				break;
+			case JOIN:
+				full_line[strlen(full_line)-2] = '\0';
+				if (cur_line[strlen(cur_line)-2] == CONTINUE_CHAR)
+					strcat(full_line, cur_line);
+				else
 				{
 					state = PROGRAM;
 					strcat(full_line, cur_line);
@@ -290,9 +276,25 @@ void CLIProcessCmds(FILE *fp, int online)
 						parseACLICmd(full_line);
 					full_line[0] = '\0';
 				}
-			}
-			break;
-			lineno++;
+				break;
+			case COMMENT:
+				if (cur_line[0] != COMMENT_CHAR)
+				{
+					if (cur_line[strlen(cur_line)-2] == CONTINUE_CHAR)
+					{
+						state = JOIN;
+						strcat(full_line, cur_line);
+					} else
+					{
+						state = PROGRAM;
+						strcat(full_line, cur_line);
+						if (strlen(full_line) > 0)
+							parseACLICmd(full_line);
+						full_line[0] = '\0';
+					}
+				}
+				break;
+				lineno++;
 		}
 	}
 }
@@ -308,7 +310,7 @@ void CLIDestroy()
 
 
 void registerCLI(char *key, void (*handler)(),
-		 char *shelp, char *usage, char *lhelp)
+		char *shelp, char *usage, char *lhelp)
 {
 	cli_entry_t *clie = (cli_entry_t *) malloc(sizeof(cli_entry_t));
 
@@ -331,13 +333,13 @@ void registerCLI(char *key, void (*handler)(),
 
 // some macro defintions...
 #define GET_NEXT_PARAMETER(X, Y)			if (((next_tok = strtok(NULL, " \n")) == NULL) ||  \
-												(strcmp(next_tok, X) != 0)) { error(Y); return; }; \
-												next_tok = strtok(NULL, " \n")
+		(strcmp(next_tok, X) != 0)) { error(Y); return; }; \
+next_tok = strtok(NULL, " \n")
 #define GET_THIS_PARAMETER(X, Y)           	if (((next_tok = strtok(NULL, " \n")) == NULL) ||  \
-												(strstr(next_tok, X) == NULL)) { error(Y); return; }
+		(strstr(next_tok, X) == NULL)) { error(Y); return; }
 #define GET_THIS_OR_THIS_PARAMETER(X, Z, Y) if (((next_tok = strtok(NULL, " \n")) == NULL) ||  \
-												((strstr(next_tok, X) == NULL) && \
-												 (strstr(next_tok, Z) == NULL))) { error(Y); return; }
+		((strstr(next_tok, X) == NULL) && \
+		 (strstr(next_tok, Z) == NULL))) { error(Y); return; }
 
 int getDevType(char *str)
 {
@@ -522,10 +524,10 @@ void routeCmd()
 			Dot2IP(next_tok, net_mask);
 
 			verbose(2, "[routeCmd]:: Device %s Interface %d, net_addr %s, netmask %s ",
-			       dev_name, interface, IP2Dot(tmpbuf, net_addr), IP2Dot((tmpbuf+20), net_mask));
+					dev_name, interface, IP2Dot(tmpbuf, net_addr), IP2Dot((tmpbuf+20), net_mask));
 
 			if (((next_tok = strtok(NULL, " \n")) != NULL) &&
-			    (!strcmp("-gw", next_tok)))
+					(!strcmp("-gw", next_tok)))
 			{
 				next_tok = strtok(NULL, " \n");
 				Dot2IP(next_tok, nxth_addr);
@@ -579,7 +581,7 @@ void arpCmd()
 		} else
 			ARPReInitTable();
 	} else if (!strcmp(next_tok, "add"))
-    {
+	{
 		if ((next_tok = strtok(NULL, " \n")) != NULL)
 		{
 			if (!strcmp("-ip", next_tok))
@@ -587,16 +589,16 @@ void arpCmd()
 				next_tok = strtok(NULL, " \n");
 				Dot2IP(next_tok, ip_addr);
 			}
-			} else if ((next_tok = strtok(NULL, " \n")) != NULL)
-            {
-				if (!strcmp("-mac", next_tok))
-				{
-					next_tok = strtok(NULL, " \n");
-					Colon2MAC(next_tok, mac_addr);
-					ARPAddEntry(ip_addr, mac_addr);
-				}
-            }
-    }
+		} else if ((next_tok = strtok(NULL, " \n")) != NULL)
+		{
+			if (!strcmp("-mac", next_tok))
+			{
+				next_tok = strtok(NULL, " \n");
+				Colon2MAC(next_tok, mac_addr);
+				ARPAddEntry(ip_addr, mac_addr);
+			}
+		}
+	}
 }
 
 
@@ -715,7 +717,7 @@ void classCmd()
 			}
 		}
 		else if (!strcmp(next_tok, "show"))
-		  printClassifier(classifier);
+			printClassifier(classifier);
 	}
 	return;
 }
@@ -825,49 +827,27 @@ void ncCmd()
 {
 	char data[DEFAULT_MTU] = {0};
 	char *tok = strtok(NULL, " \n");
-	int proto = UDP_PROTOCOL;
 
 	if (tok == NULL) {
 		printf("nc : too few arguments.\n");
 		return;
 	}
 
-	if(strcmp(tok,"-o")== 0){
-		tok = strtok(NULL, " \n");
-		
-		if (tok == NULL) {
-                	printf("nc : too few arguments.\n");
-                	return;
-        	}
-
-		proto = TCP_PROTOCOL;
-		
-		uint16_t port = atoi(tok);
-
-		if (port_open(port, proto)) {
-			printf("Port %d already in use.\n", port);
-			return;
-		}
-
-		if (!open_port(port, proto)) {
-			printf("Unspecified error opening port!");
-			return;
-		}
-
-		
-		
+	if (strcmp(tok, "-t") == 0) {
+		tcp_nc();
+		return;
 	}
 
 	if (strcmp(tok, "-l") == 0) {
 		tok = strtok(NULL, " \n");
 
 		if (tok == NULL) {
-                	printf("nc : too few arguments.\n");
-                	return;
-        	}	 	
+			printf("nc : too few arguments.\n");
+			return;
+		}	 	
 
 		uint16_t port = atoi(tok);
-		
+
 		if (port_open(port, UDP_PROTOCOL)) {
 			printf("Port %d already in use.\n", port);
 			return;
@@ -885,26 +865,27 @@ void ncCmd()
 
 		printf("%s", data);
 		close_port(port, UDP_PROTOCOL);	
-	
-		
+
+		return;
+
 	} else { // send
 		uint8_t ip[4];
 		Dot2IP(tok, ip);
 		tok = strtok(NULL, " \n");
 
 		if (tok == NULL) {
-                	printf("nc : too few arguments.\n");
-                	return;
-        	}	 
+			printf("nc : too few arguments.\n");
+			return;
+		}	 
 
 		uint16_t port = atoi(tok);
 
 		tok = strtok(NULL, " \"\n");
 
 		if (tok == NULL) {
-                	printf("nc : too few arguments.\n");
-                	return;
-        	}	 
+			printf("nc : too few arguments.\n");
+			return;
+		}	 
 
 		uint16_t len = strlen(tok);
 		tok[len] = '\n';
@@ -912,8 +893,121 @@ void ncCmd()
 
 		if (send_udp(ip, port, 0, data, len + 1) == -1) {
 			printf("%s", "Error, too much data.\n");
-		}	
+		}
+
+		return;	
 	}
+}
+
+// this is anything right now, will be application part when were finished
+void tcp_nc()
+{
+	char *tok = strtok(NULL, " \n");
+
+	if (tok == NULL) {
+		printf("nc : too few arguments.\n");
+		return;
+	} 
+
+	if (strcmp(tok, "-l") == 0) {  // listen
+		tok = strtok(NULL, " \n");
+
+		if (tok == NULL) {
+         		printf("nc : too few arguments.\n");
+                	return;
+        	}	
+
+		ushort port = atoi(tok);
+
+		if (!tcp_listen(port)) {
+			printf("Error opening port %s\n", tok);
+			return;
+		}
+
+		uchar data[DEFAULT_MTU];
+
+		while (1) {
+
+			if (read_state() == CLOSED) {
+				return;
+			}
+
+			memset(data, 0, DEFAULT_MTU);
+			printf("R: ");
+		
+			if (grecv(port, TCP_PROTOCOL, data, DEFAULT_MTU - 1) == -1) {
+				printf("Error reading from port %s\n", tok);
+			}
+
+			printf("%s", data);
+
+		/*	memset(data, 0, DEFAULT_MTU);
+			printf("L: ");
+			fgets(data, DEFAULT_MTU, stdin);
+
+			if(*data == 'Q' && strlen(data) == 2) {
+				return;
+			}
+
+			tcp_send(data, strlen(data));*/
+		}
+	} else {     // connect
+
+
+		ushort l_port = atoi(tok);
+		
+		tok = strtok(NULL, " \n");
+
+		uint8_t ip[4];
+                Dot2IP(tok, ip);
+                tok = strtok(NULL, " \n");
+
+		if (tok == NULL) {
+                        printf("nc : too few arguments.\n");
+                        return;
+                }		
+
+		ushort r_port = atoi(tok);
+
+		tcp_connect(l_port, ip, r_port);
+
+		int i;
+		for (i = 0; i < 3; i++) {
+			if (read_state() == ESTABLISHED) break;
+			sleep(1);   // can conflict with SIGALARM, any better ideas?
+		}
+
+		if (i > 3) {
+			return;
+		}
+
+		uchar data[DEFAULT_MTU];
+
+		while (1) {
+
+			/*
+			memset(data, 0, DEFAULT_MTU);
+                        printf("L: ");
+                        fgets(data, DEFAULT_MTU, stdin);
+
+                        if(*data == 'Q' && strlen(data) == 2) {
+                                return;
+                        }
+
+                        tcp_send(data, strlen(data));
+			*/		
+
+                        memset(data, 0, DEFAULT_MTU);
+                        printf("R: ");
+
+                        if (grecv(l_port, TCP_PROTOCOL, data, DEFAULT_MTU - 1) == -1) {
+                                printf("Error reading from port %s\n", tok);
+                        }
+
+                        printf("%s", data);
+
+                }
+	}	
 }
 
 /*
@@ -939,7 +1033,7 @@ void pingCmd()
 		tries = 1;
 	Dot2IP(next_tok, ip_addr);
 	verbose(2, "[pingCmd]:: ping command sent, tries = %d, IP = %s",
-		tries, IP2Dot(tmpbuf, ip_addr));
+			tries, IP2Dot(tmpbuf, ip_addr));
 
 	if ((next_tok = strtok(NULL, " \n")) != NULL)
 	{
