@@ -553,6 +553,7 @@ int process_ack(gpacket_t *gpkt)
 		send_ack(gpkt);
 		return 0;
 	} else {
+		printf("duplicate???\n");
 		free(gpkt);
 		return 0;
 	}
@@ -577,7 +578,7 @@ int incoming_ack(gpacket_t *gpkt)
 			return;
 		}
 	}
-	else if ( (read_state() == ESTABLISHED) || (read_state() == CLOSE_WAIT || (read_state() == FIN_WAIT2)) ) 
+	if ( (read_state() == ESTABLISHED) || (read_state() == CLOSE_WAIT || (read_state() == FIN_WAIT2)) ) 
 	{
 		proceed = process_ack(gpkt);
 	}
@@ -707,6 +708,7 @@ void tcp_recv(gpacket_t *gpkt)
 
 				if( incoming_ack(gpkt) == 0);
 				{
+					printf("Do we return?\n");
 					return;
 				}
 
