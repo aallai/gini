@@ -476,8 +476,6 @@ int check_if_tcp_acceptable(tcphdr_t *hdr, uint16_t tcp_data_len)
 	}
 	else if ( tcp_data_len == 0 && tcb.recv_win > 0 )
 	{
-		printf("Case 2\n");
-
 		if (tcb.recv_nxt == seq)
 		{
 			accept =  1; 
@@ -553,9 +551,7 @@ int process_ack(gpacket_t *gpkt)
 		send_ack(gpkt);
 		return 0;
 	} else {
-		printf("duplicate???\n");
-		free(gpkt);
-		return 0;
+		return 1;    // ignore ack but still process data
 	}
 }
 
@@ -575,13 +571,15 @@ int incoming_ack(gpacket_t *gpkt)
 		} else {
 			send_rst(gpkt);
 			printf("incoming_ack() : reset\n");
-			return;
+			return 0;
 		}
 	}
+
 	if ( (read_state() == ESTABLISHED) || (read_state() == CLOSE_WAIT || (read_state() == FIN_WAIT2)) ) 
 	{
 		proceed = process_ack(gpkt);
 	}
+
 	else if ( read_state() ==  FIN_WAIT1 )
 	{
 		proceed = process_ack(gpkt);                     
@@ -706,9 +704,8 @@ void tcp_recv(gpacket_t *gpkt)
 
 			else if (hdr->flags & ACK) { // part of 5th check (ACK bit) 
 
-				if( incoming_ack(gpkt) == 0);
+				if( incoming_ack(gpkt) == 0)
 				{
-					printf("Do we return?\n");
 					return;
 				}
 
@@ -717,12 +714,15 @@ void tcp_recv(gpacket_t *gpkt)
 
 					// if our pipe is full, put window to zero
 					// good thing other TCPs obey the robustness principle! 
-					if (write_data(tcb.local_port, TCP_PROTOCOL, data, tcp_data_len) < tcp_data_len) {
-						tcb.recv_win = 0;
-					} else {
-						tcb.recv_win = DEFAULT_WINSIZE;
-						tcb.recv_nxt += tcp_data_len;
+					if (tcp_data_len > 0) {
+						if (write_data(tcb.local_port, TCP_PROTOCOL, data, tcp_data_len) < tcp_data_len) {
+							tcb.recv_win = 0;
+						} else {
+							tcb.recv_win = DEFAULT_WINSIZE;
+							tcb.recv_nxt += tcp_data_len;
+						}
 					}
+
 					send_ack(gpkt);
 				}
 
