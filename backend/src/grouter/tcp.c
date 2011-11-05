@@ -278,7 +278,7 @@ void send_rst(gpacket_t *gpkt)
 		hdr->checksum = ~hdr->checksum;
 	}
 
-	IPOutgoingPacket(gpkt, gNtohl(tmp, ip->ip_src), hdr->data_off * 4, 0, TCP_PROTOCOL);
+	IPOutgoingPacket(gpkt, gNtohl(tmp, ip->ip_src), hdr->data_off * 4, 1, TCP_PROTOCOL);
 }
 
 // send syn-ack in response to syn segment gpkt
@@ -301,6 +301,7 @@ void send_synack(gpacket_t *gpkt)
 	hdr->win = htons(tcb.recv_win);
 	hdr->urg = 0;
 	hdr->checksum = 0;
+	hdr->reserved = 0;	
 
 	// src and dst are flipped
 	hdr->checksum = htons(tcp_checksum(ip->ip_dst, ip->ip_src, hdr, 0));
@@ -309,7 +310,7 @@ void send_synack(gpacket_t *gpkt)
 		hdr->checksum = ~hdr->checksum;
 	}
 
-	IPOutgoingPacket(gpkt, gNtohl(tmp, ip->ip_src), hdr->data_off * 4, 0, TCP_PROTOCOL);
+	IPOutgoingPacket(gpkt, gNtohl(tmp, ip->ip_src), hdr->data_off * 4, 1, TCP_PROTOCOL);
 }
 
 // ack segment
@@ -336,6 +337,7 @@ void send_ack(gpacket_t *gpkt)
 	hdr->win = htons(tcb.recv_win);
 	hdr->urg = 0;
 	hdr->checksum = 0;
+	hdr->reserved = 0;
 
 	// src and dst are flipped
 	hdr->checksum = htons(tcp_checksum(ip->ip_dst, ip->ip_src, hdr, 0));
@@ -344,7 +346,7 @@ void send_ack(gpacket_t *gpkt)
 		hdr->checksum = ~hdr->checksum;
 	}   
 
-	IPOutgoingPacket(gpkt, gNtohl(tmp, ip->ip_src), hdr->data_off * 4, 0, TCP_PROTOCOL);
+	IPOutgoingPacket(gpkt, gNtohl(tmp, ip->ip_src), hdr->data_off * 4, 1, TCP_PROTOCOL);
 }
 
 // process incoming segment in closed state
@@ -383,7 +385,6 @@ void incoming_listen(gpacket_t *gpkt)
 
 		tcb.recv_nxt = ntohl(hdr->seq) + 1;
 		tcb.irs = ntohl(hdr->seq);
-		tcb.recv_win = BUFSIZE;
 
 		tcb.iss = sequence_gen();
 		tcb.snd_nxt = tcb.iss + 1;
@@ -391,7 +392,7 @@ void incoming_listen(gpacket_t *gpkt)
 
 		uchar tmp[4];
 		COPY_IP(tcb.remote_ip, gNtohl(tmp, ip->ip_src));
-		tcb.remote_port = ntohs(hdr->dst);
+		tcb.remote_port = ntohs(hdr->src);
 
 		send_synack(gpkt);
 
@@ -566,6 +567,7 @@ int incoming_ack(gpacket_t *gpkt)
 	if ( read_state() == SYN_RECV )
 	{
 		if (htonl(hdr->ack) == tcb.snd_una) {
+			printf("state -> ESATBLISHED\n");
 			set_state(ESTABLISHED);
 		} else {
 			send_rst(gpkt);

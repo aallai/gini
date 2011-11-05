@@ -56,7 +56,7 @@ enum
 
 #define TCP_PHEADER_SIZE 12 // pseudo header size in bytes
 #define BUFSIZE 65535         // buffer space
-#define DEFAULT_WINSIZE 1024  // default window
+#define DEFAULT_WINSIZE 5840  // default window
 
 // a port on which to listen on, creates port for you
 int tcp_listen(ushort port);

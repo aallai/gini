@@ -926,6 +926,11 @@ void tcp_nc()
 		uchar data[DEFAULT_MTU];
 
 		while (1) {
+
+			if (read_state() == CLOSED) {
+				return;
+			}
+
 			memset(data, 0, DEFAULT_MTU);
 			printf("R: ");
 		
@@ -935,7 +940,7 @@ void tcp_nc()
 
 			printf("%s", data);
 
-			memset(data, 0, DEFAULT_MTU);
+		/*	memset(data, 0, DEFAULT_MTU);
 			printf("L: ");
 			fgets(data, DEFAULT_MTU, stdin);
 
@@ -943,9 +948,15 @@ void tcp_nc()
 				return;
 			}
 
-			tcp_send(data, strlen(data));
+			tcp_send(data, strlen(data));*/
 		}
 	} else {     // connect
+
+
+		ushort l_port = atoi(tok);
+		
+		tok = strtok(NULL, " \n");
+
 		uint8_t ip[4];
                 Dot2IP(tok, ip);
                 tok = strtok(NULL, " \n");
@@ -957,12 +968,6 @@ void tcp_nc()
 
 		ushort r_port = atoi(tok);
 
-		ushort l_port;
-
-		for (l_port = 1; l_port < 65535; l_port++) {
-			if (open_port(l_port, TCP_PROTOCOL)) break;
-		}	
-
 		tcp_connect(l_port, ip, r_port);
 
 		int i;
@@ -971,10 +976,15 @@ void tcp_nc()
 			sleep(1);   // can conflict with SIGALARM, any better ideas?
 		}
 
+		if (i > 3) {
+			return;
+		}
+
 		uchar data[DEFAULT_MTU];
 
 		while (1) {
 
+			/*
 			memset(data, 0, DEFAULT_MTU);
                         printf("L: ");
                         fgets(data, DEFAULT_MTU, stdin);
@@ -984,7 +994,8 @@ void tcp_nc()
                         }
 
                         tcp_send(data, strlen(data));
-		
+			*/		
+
                         memset(data, 0, DEFAULT_MTU);
                         printf("R: ");
 
