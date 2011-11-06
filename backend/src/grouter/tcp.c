@@ -59,6 +59,47 @@ struct tcb_t {
 
 } tcb;
 
+
+void print_tcp_packet(gpacket_t *gpkt)
+{
+	ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
+	uint16_t ipPacketLength = ntohs(ip->ip_pkt_len); 
+
+	tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
+	uint16_t tcp_data_len = ipPacketLength - ip->ip_hdr_len * 4 - hdr->data_off * 4; 
+
+	char *data = (char*) hdr + hdr->data_off * 4;
+	printf("\n");
+	printf("Print Packet");
+	if (hdr->flags & FIN) 
+	{
+		printf("Flag: FIN\n");
+	}
+	if (hdr->flags & SYN) 
+	{
+		printf("Flag: SYN\n");
+	}
+	if (hdr->flags & RST) 
+	{
+		printf("Flag: RST\n");
+	}
+	if (hdr->flags & PSH) 
+	{
+		printf("Flag: PSH\n");
+	}
+	if (hdr->flags & ACK) 
+	{
+		printf("Flag: ACK\n");
+	}
+	if (hdr->flags & URG) 
+	{
+		printf("Flag: URG\n");
+	}
+	printf("data %s \n");
+	printf("\n");
+
+}
+
 void reset_tcb_state()
 {
 	memset(&tcb, 0, sizeof(struct tcb_t));
@@ -150,12 +191,64 @@ int read_state()
 	return ret;
 }
 
+
+void print_state(int state) 
+{
+	if ( state == 1 ) 
+	{
+		printf("state->ESTABLISHED\n");
+	}
+	else if ( state == 2 ) 
+	{
+		printf("state->SYN_SENT\n");
+	}
+	else if ( state == 3 ) 
+	{
+		printf("state->SYN_RECV\n");
+	}
+	else if ( state == 4 ) 
+	{
+		printf("state->FIN_WAIT1\n");
+	}
+	else if ( state == 5 ) 
+	{
+		printf("state->FIN_WAIT2\n");
+	}
+ 	else if ( state == 6 ) 
+	{
+		printf("state->TIME_WAIT\n");
+	}
+ 	else if ( state == 7 ) 
+	{
+		printf("state->CLOSED\n");
+	}
+ 	else if ( state == 8 ) 
+	{
+		printf("state->CLOSE_WAIT\n");
+	}
+	else if ( state == 9 ) 
+	{
+		printf("state->LAST_ACK\n");
+	}
+ 	else if ( state == 10 ) 
+	{
+		printf("state->LISTEN\n");
+	}
+ 	else if ( state == 11 ) 
+	{
+		printf("state->CLOSING\n");
+	}
+}
+
 void set_state(int val) 
 {
 	pthread_mutex_lock(&tcb.state_lock);
 	tcb.state = val;
+	print_state(tcb.state);
 	pthread_mutex_unlock(&tcb.state_lock);
 }
+
+
 
 // assumes the data is right after the tcp header
 uint16_t tcp_checksum(uchar *src, uchar *dst, tcphdr_t *hdr, int data_len)
@@ -191,8 +284,6 @@ int tcp_listen(ushort port)
 
 	tcb.local_port = port;
 	tcb.type = PASSIVE;
-
-	printf("state -> LISTEN\n");
 	set_state(LISTEN);
 
 	return 1;
@@ -343,6 +434,40 @@ void send_ack(gpacket_t *gpkt)
 
 
 	hdr->flags = ACK;
+	tmp_port = hdr->src;
+	hdr->src = hdr->dst;
+	hdr->dst = tmp_port;
+	hdr->ack = htonl(tcb.recv_nxt);
+	printf("check: ack: ack: %lo \n",tcb.recv_nxt );
+	hdr->seq = htonl(tcb.snd_nxt);	
+	printf("check: ack: seq: %lo \n",tcb.snd_nxt );
+	hdr->data_off = 5;
+	hdr->win = htons(tcb.recv_win);
+	printf("check: ack: window: %lo \n",tcb.recv_win );
+	hdr->urg = 0;
+	hdr->checksum = 0;
+	hdr->reserved = 0;
+
+	// src and dst are flipped
+	hdr->checksum = htons(tcp_checksum(ip->ip_dst, ip->ip_src, hdr, 0));
+
+	if (hdr->checksum == 0) {
+		hdr->checksum = ~hdr->checksum;
+	}   
+
+	IPOutgoingPacket(gpkt, gNtohl(tmp, ip->ip_src), hdr->data_off * 4, 1, TCP_PROTOCOL);
+}
+
+
+void send_fin(gpacket_t *gpkt) 
+{
+	uchar tmp[4];
+	uint16_t tmp_port;
+
+	ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
+	tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);	
+
+	hdr->flags = FIN;
 	tmp_port = hdr->src;
 	hdr->src = hdr->dst;
 	hdr->dst = tmp_port;
@@ -676,7 +801,7 @@ int incoming_ack(gpacket_t *gpkt)
 	if ( read_state() == SYN_RECV )
 	{
 		if (tcb.snd_una <= ntohl(hdr->ack) && ntohl(hdr->ack) <= tcb.snd_nxt)  {
-			printf("state -> ESATBLISHED\n");
+			
 			set_state(ESTABLISHED);
 		} else {
 			send_rst(gpkt);
@@ -727,6 +852,7 @@ int incoming_ack(gpacket_t *gpkt)
 
 void incoming_fin() 
 {
+	printf("Incoming fin \n");
 	if ( (read_state() == SYN_RECV) || (read_state() == ESTABLISHED) )
 	{
 		set_state(CLOSE_WAIT);
@@ -760,7 +886,8 @@ void tcp_recv(gpacket_t *gpkt)
 	uint16_t tcp_data_len = ipPacketLength - ip->ip_hdr_len * 4 - hdr->data_off * 4; 
 
 	uint8_t *data = (uint8_t *) hdr + hdr->data_off * 4;
-
+	
+	
 
 	// je suis le rfc, derniere section qui explique etape par etape
 
@@ -811,41 +938,56 @@ void tcp_recv(gpacket_t *gpkt)
 				incoming_misplaced_syn(gpkt);
 				return;
 			}
-
-			else if (hdr->flags & ACK) { // part of 5th check (ACK bit) 
-
+			
+			if( hdr->ack !=0)
+			{
+				if (hdr->flags & ACK == 0) 
+				{ // part of 5th check (ACK bit) 
+					free(gpkt);
+					return;		
+				}
 				if( incoming_ack(gpkt) == 0)
-				{
+				{ 
 					return;
 				}
-
-				if ( (read_state() == ESTABLISHED) || (read_state() == FIN_WAIT1) || (read_state() == FIN_WAIT2) )
-				{
-
-					// if our pipe is full, put window to zero
-					// good thing other TCPs obey the robustness principle! 
-					if (tcp_data_len > 0) {
-						if (write_data(tcb.local_port, TCP_PROTOCOL, data, tcp_data_len) < tcp_data_len) {
-							tcb.recv_win = 0;
-						} else {
-							tcb.recv_win = DEFAULT_WINSIZE;
-							tcb.recv_nxt += tcp_data_len;
-						}
-					}
-					//Calculate the round trip time
-					tcb.rcvtm = clock();
-					calc_rtt();
-
-					send_ack(gpkt);
-				}
-
-				if ( hdr->flags & FIN )
-				{
-					incoming_fin();
-				}
-			} else {
-				free(gpkt);
 			}
+
+			if ( (read_state() == ESTABLISHED) || (read_state() == FIN_WAIT1) || (read_state() == FIN_WAIT2) )
+			{
+
+				// if our pipe is full, put window to zero
+				// good thing other TCPs obey the robustness principle! 
+				if (tcp_data_len > 0) {
+					if (write_data(tcb.local_port, TCP_PROTOCOL, data, tcp_data_len) < tcp_data_len) {
+						tcb.recv_win = 0;
+					} else {
+						tcb.recv_win = DEFAULT_WINSIZE;
+						tcb.recv_nxt += tcp_data_len;
+						send_ack(gpkt);
+					}
+				}
+				//Calculate the round trip time
+				tcb.rcvtm = clock();
+				calc_rtt();
+
+				
+			}
+			else if ( read_state() == CLOSE_WAIT ) 
+			{
+				send_fin(gpkt); 
+				set_state(LAST_ACK); 
+				printf("[tcp_recv]:: CLOSE WAIT PLEASE CLOSE CONNECTION");
+				verbose(2, "[tcp_recv]:: CLOSE WAIT PLEASE CLOSE CONNECTION");
+				return;
+			}
+
+			if ( hdr->flags & FIN )
+			{
+				
+				incoming_fin();
+			}
+
+
 		} else {
 			if ( hdr->flags & RST == 0 ) //part of 1st check (rst bit) 
 			{
