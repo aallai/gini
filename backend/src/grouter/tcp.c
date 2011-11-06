@@ -498,7 +498,7 @@ int tcp_send(uchar *buf, int len)
 
 	else if(read_state() == ESTABLISHED){
 		// check if data is too big
-		if(tcb.recv_win <= (tcb.snd_head - seq_to_off(tcb.snd_una, tcb.iss))){
+		if(tcb.snd_win < len) {
 		// the receiving buffer is too small
 			printf("error: receiver buffer too small\n"); 			
 			return 0;
@@ -514,7 +514,7 @@ int tcp_send(uchar *buf, int len)
 			return 0; 
 		}
 	
-		gpacket_t *gpkt = (gpacket_t *) malloc(sizeof(gpacket_t));
+		gpacket_t *gpkt = (gpacket_t *) calloc(1, sizeof(gpacket_t));
 
 		if (gpkt == NULL) {			
 			printf("error: gpkt not allocated\n");
@@ -530,9 +530,6 @@ int tcp_send(uchar *buf, int len)
 		COPY_IP(ip->ip_dst, gHtonl(tmpbuf, tcb.remote_ip));
 		COPY_IP(ip->ip_src, gHtonl(tmpbuf, tcb.local_ip));
 
-		
-		tcb.recv_nxt = tcb.recv_nxt +1;
-		tcb.snd_nxt = tcb.snd_nxt +1;
 		hdr->ack = htonl(tcb.recv_nxt);
 		printf("check: ack: %lo \n", tcb.recv_nxt);
 		hdr->seq = htonl(tcb.snd_nxt);
@@ -558,6 +555,8 @@ int tcp_send(uchar *buf, int len)
 		tcb.sndtm = time(NULL);
 //		printf("check: sendtime: %s \n", tcb.sndtm);
 		IPOutgoingPacket(gpkt, gNtohl(tmpbuf, ip->ip_src), hdr->data_off * 4, 1, TCP_PROTOCOL);	
+
+		tcb.snd_nxt += len;
 	}
 
 	else {
@@ -565,6 +564,7 @@ int tcp_send(uchar *buf, int len)
 		return 0;
 	}
 
+	
 	return 1;
 }
 
