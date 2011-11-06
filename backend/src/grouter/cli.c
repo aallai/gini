@@ -991,6 +991,7 @@ void tcp_nc()
                         fgets(data, DEFAULT_MTU, stdin);
 
                         if(*data == 'Q' && strlen(data) == 2) {
+				tcp_close();
                                 return;
                         }
 
