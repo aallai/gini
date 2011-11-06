@@ -38,14 +38,14 @@ struct tcb_t {
 	// for send
 	unsigned long snd_nxt;    // next
 	unsigned long snd_una;    // unacknowledged
-	unsigned long snd_win;    // window (offset in sequence numbers)
+	ushort snd_win;    // window (offset in sequence numbers)
 	unsigned long snd_wl1;	  // last seq # used to update window
 	unsigned long snd_wl2;    // last ack used to update window
 	unsigned long iss;        // inital sequence number	
 
 	// for receive
 	unsigned long recv_nxt;   // next
-	unsigned long recv_win;   // window
+	ushort recv_win;   // window
 	unsigned long irs;        // initial sequence number
 
 	// for timeout
@@ -115,7 +115,6 @@ void init_tcp()
 
 void calc_rtt(){
 	tcb.rtt = tcb.rcvtm - tcb.sndtm;
-	printf("check: rtt: %lo\n",tcb.rtt);
 }
 
 // converts seq from sequence space to buffer space using intial as initial sequence number
@@ -322,9 +321,9 @@ int tcp_connect(ushort local, uchar *dest_ip, ushort dest_port)
 	tcb.snd_una = tcb.iss;
 	tcb.snd_nxt = tcb.iss + 1;
 
+	uchar tmpbuf[4];
 	getsrcaddr(gpkt, dest_ip);
-	memcpy(tcb.local_ip,ip->ip_src,4);
-	uchar tmpbuf[4] = {0};
+	memcpy(tcb.local_ip, gNtohl(tmpbuf, ip->ip_src), 4);
 	COPY_IP(ip->ip_dst, gHtonl(tmpbuf, dest_ip));
 
 	hdr->src = htons(tcb.local_port);
@@ -532,9 +531,11 @@ void incoming_listen(gpacket_t *gpkt)
 		tcb.iss = sequence_gen();
 		tcb.snd_nxt = tcb.iss + 1;
 		tcb.snd_una = tcb.iss;
+		tcb.snd_win = ntohs(hdr->win);
 
 		uchar tmp[4];
 		COPY_IP(tcb.remote_ip, gNtohl(tmp, ip->ip_src));
+		COPY_IP(tcb.local_ip, gNtohl(tmp, ip->ip_dst));
 		tcb.remote_port = ntohs(hdr->src);
 
 		send_synack(gpkt);
@@ -581,6 +582,7 @@ void incoming_syn_sent(gpacket_t *gpkt)
 	else if (hdr->flags & SYN) {
 		tcb.recv_nxt = ntohl(hdr->seq) + 1;
 		tcb.irs = ntohl(hdr->seq);
+		tcb.snd_win = ntohs(hdr->win);
 
 		if (valid_ack) {
 			tcb.snd_una = ntohl(hdr->ack);
@@ -608,16 +610,13 @@ void incoming_syn_sent(gpacket_t *gpkt)
 
 int tcp_send(uchar *buf, int len)
 {
-
-	printf("check: data: %s \n", buf);
-	
 	if(read_state() == CLOSED){
 		printf("error: connection must be opened\n");
 		return 0;
 	}
 
 	else if(read_state() == LISTEN){
-		printf("error: connection must be establish\n");
+		printf("error: connection must be established\n");
 		return 0;
 	}
 
@@ -625,12 +624,12 @@ int tcp_send(uchar *buf, int len)
 		// check if data is too big
 		if(tcb.snd_win < len) {
 		// the receiving buffer is too small
-			printf("error: receiver buffer too small\n"); 			
+			printf("error: receive window too small\n"); 			
 			return 0;
 		}
 		
 		if (write_snd_buf(buf, len) == -1) {			
-			printf("error: writer buffer too small\n");
+			printf("error: send buffer too small\n");
 			return 0;
 		}
 
@@ -656,30 +655,26 @@ int tcp_send(uchar *buf, int len)
 		COPY_IP(ip->ip_src, gHtonl(tmpbuf, tcb.local_ip));
 
 		hdr->ack = htonl(tcb.recv_nxt);
-		printf("check: ack: %lo \n", tcb.recv_nxt);
 		hdr->seq = htonl(tcb.snd_nxt);
-		printf("check: seq: %lo \n", tcb.snd_nxt);
 		hdr->src = htons(tcb.local_port);
-		printf("check: local: %d \n", tcb.local_port);
 		hdr->dst = htons(tcb.remote_port);
-		printf("check: remote: %d \n", tcb.remote_port);
 		hdr->data_off = 5;
 		hdr->flags = ACK;
 		hdr->checksum = 0;
 		hdr->reserved = 0;
 		hdr->urg = 0;
 		hdr->win = htons(tcb.recv_win);
-		printf("check: window: %lo \n", tcb.recv_win);
 		
-		memcpy((uchar *) hdr+TCP_HEADER_SIZE, buf, len);
+		memcpy((uchar *) hdr + hdr->data_off * 4, buf, len);
+
 
 		hdr->checksum = htons(tcp_checksum(ip->ip_src, ip->ip_dst, hdr, len));
 		if (hdr->checksum == 0) {
 			hdr->checksum = ~hdr->checksum;
 		}
 		tcb.sndtm = time(NULL);
-//		printf("check: sendtime: %s \n", tcb.sndtm);
-		IPOutgoingPacket(gpkt, gNtohl(tmpbuf, ip->ip_src), hdr->data_off * 4, 1, TCP_PROTOCOL);	
+
+		IPOutgoingPacket(gpkt, gNtohl(tmpbuf, ip->ip_dst), hdr->data_off * 4 + len, 1, TCP_PROTOCOL);	
 
 		tcb.snd_nxt += len;
 	}
@@ -965,12 +960,11 @@ void tcp_recv(gpacket_t *gpkt)
 						tcb.recv_nxt += tcp_data_len;
 						send_ack(gpkt);
 					}
+
 				}
 				//Calculate the round trip time
 				tcb.rcvtm = clock();
-				calc_rtt();
-
-				
+				calc_rtt();	
 			}
 			else if ( read_state() == CLOSE_WAIT ) 
 			{
