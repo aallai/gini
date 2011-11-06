@@ -10,6 +10,7 @@
 #include <string.h>
 #include <time.h>
 #include <pthread.h>
+#include <signal.h>
 
 void set_state(int);
 
