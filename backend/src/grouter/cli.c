@@ -998,7 +998,7 @@ void tcp_nc()
 				return;
 			}
 					
-
+			
                         memset(data, 0, DEFAULT_MTU);
                         printf("R: ");
 
@@ -1007,7 +1007,6 @@ void tcp_nc()
                         }
 
                         printf("%s", data);
-
                 }
 	}	
 }

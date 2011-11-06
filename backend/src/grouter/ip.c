@@ -18,6 +18,7 @@
 #include <slack/err.h>
 #include <netinet/in.h>
 #include <string.h>
+#include "tcp.h"
 
 route_entry_t route_tbl[MAX_ROUTES];       	// routing table
 mtu_entry_t MTU_tbl[MAX_MTU];		        // MTU table
@@ -529,7 +530,7 @@ int getsrcaddr(gpacket_t *pkt, uchar *dst_ip){
 	}
 		// the outgoing packet should have the interface IP as source
 
-	// in host byte order
+	// in network byte order
 	COPY_IP(ip_pkt->ip_src, gHtonl(tmpbuf, iface_ip_addr));
 	return EXIT_SUCCESS;
 }
