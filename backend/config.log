@@ -1,4 +1,4 @@
-file /home/gini/udp_gini/backend/SConstruct,line 35:
+file /home/nick/gini2/backend/SConstruct,line 35:
 	Configure(confdir = .sconf_temp)
 scons: Configure: Checking for C library slack... 
 scons: Configure: ".sconf_temp/conftest_0.c" is up to date.

@@ -1,4 +1,4 @@
-
+	
 #include "ports.h"
 #include "tcp.h"
 #include "ip.h"
@@ -29,9 +29,11 @@ struct tcb_t {
 	pthread_mutex_t state_lock;
 
 	// ports, addresses
+	uchar local_ip[4];
 	uint16_t local_port;
 	uchar remote_ip[4];
 	uint16_t remote_port;
+	
 
 	// for send
 	unsigned long snd_nxt;    // next
@@ -46,6 +48,11 @@ struct tcb_t {
 	unsigned long recv_win;   // window
 	unsigned long irs;        // initial sequence number
 
+	// for timeout
+	unsigned long rtt;	//round trip time
+	unsigned long srtt;	//smooth round trip time
+	time_t sndtm;	// time at which the packet is send	
+	time_t rcvtm;	//time at which the ack was received
 
 	int snd_head;
 	uchar snd_buf[BUFSIZE];
@@ -65,6 +72,11 @@ void init_tcp()
 	reset_tcb_state();
 }
 
+void calc_rtt(){
+	tcb.rtt = tcb.rcvtm - tcb.sndtm;
+	printf("check: rtt: %lo\n",tcb.rtt);
+}
+
 // converts seq from sequence space to buffer space using intial as initial sequence number
 int seq_to_off(uint32_t seq, uint32_t initial)
 {
@@ -77,7 +89,15 @@ int seq_to_off(uint32_t seq, uint32_t initial)
 // write len bytes starting from data in to circular buffer, returns -1 on error
 int write_snd_buf(uchar *data, int len)
 {
-	if ( (tcb.snd_head + len - 1) % BUFSIZE >= seq_to_off(tcb.snd_una, tcb.iss) ) {
+	int una = seq_to_off(tcb.snd_una, tcb.iss);
+	int remaining= 0;
+	if(una > tcb.snd_head){
+		remaining = BUFSIZE - ((tcb.snd_head + BUFSIZE - una)% BUFSIZE);
+	} else {
+		remaining = BUFSIZE - (tcb.snd_head - una);
+	}
+	
+	if ( (tcb.snd_head + len - 1) % BUFSIZE >= remaining ) {
 		// not enough space	
 		return -1;
 	}
@@ -162,15 +182,6 @@ uint32_t sequence_gen()
 	return (uint32_t) clock();
 }
 
-int tcp_send(uchar *buf, int len)
-{
-	if (write_snd_buf(buf, len) == -1) {
-		return -1;
-	}
-
-
-}
-
 // returns 0 on error
 int tcp_listen(ushort port)
 {
@@ -221,22 +232,27 @@ int tcp_connect(ushort local, uchar *dest_ip, ushort dest_port)
 	tcb.snd_nxt = tcb.iss + 1;
 
 	getsrcaddr(gpkt, dest_ip);
+	memcpy(tcb.local_ip,ip->ip_src,4);
 	uchar tmpbuf[4] = {0};
 	COPY_IP(ip->ip_dst, gHtonl(tmpbuf, dest_ip));
 
 	hdr->src = htons(tcb.local_port);
 	hdr->dst = htons(tcb.remote_port);
 	hdr->seq = htonl(tcb.iss);
+	printf("check: connect: seq: %lo \n",tcb.iss );
 	hdr->data_off = 5;
 	hdr->flags = SYN;
 	hdr->checksum = 0;
 	hdr->win = htons(tcb.recv_win);
+	printf("check: connect: win: %lo \n",tcb.recv_win );
 
 	hdr->checksum = htons(tcp_checksum(ip->ip_src, ip->ip_dst, hdr, 0));
 	if (hdr->checksum == 0) {
 		hdr->checksum = ~hdr->checksum;
 	}				
 
+	tcb.sndtm = time(NULL);
+//	printf("check: connect: sendtime: %d \n",tcb.sndtm );
 	IPOutgoingPacket(gpkt, tcb.remote_ip, hdr->data_off * 4, 1, TCP_PROTOCOL);
 
 	printf("state -> SYN_SENT\n");
@@ -330,11 +346,13 @@ void send_ack(gpacket_t *gpkt)
 	tmp_port = hdr->src;
 	hdr->src = hdr->dst;
 	hdr->dst = tmp_port;
-
 	hdr->ack = htonl(tcb.recv_nxt);
-	hdr->seq = htonl(tcb.snd_nxt);
+	printf("check: ack: ack: %lo \n",tcb.recv_nxt );
+	hdr->seq = htonl(tcb.snd_nxt);	
+	printf("check: ack: seq: %lo \n",tcb.snd_nxt );
 	hdr->data_off = 5;
 	hdr->win = htons(tcb.recv_win);
+	printf("check: ack: window: %lo \n",tcb.recv_win );
 	hdr->urg = 0;
 	hdr->checksum = 0;
 	hdr->reserved = 0;
@@ -420,6 +438,8 @@ void incoming_syn_sent(gpacket_t *gpkt)
 			}
 			return;
 		}
+		tcb.rcvtm = time(NULL);
+		calc_rtt();
 		valid_ack = 1;
 	}
 
@@ -458,6 +478,95 @@ void incoming_syn_sent(gpacket_t *gpkt)
 }
 
 
+
+
+
+int tcp_send(uchar *buf, int len)
+{
+
+	printf("check: data: %s \n", buf);
+	
+	if(read_state() == CLOSED){
+		printf("error: connection must be opened\n");
+		return 0;
+	}
+
+	else if(read_state() == LISTEN){
+		printf("error: connection must be establish\n");
+		return 0;
+	}
+
+	else if(read_state() == ESTABLISHED){
+		// check if data is too big
+		if(tcb.recv_win <= (tcb.snd_head - seq_to_off(tcb.snd_una, tcb.iss))){
+		// the receiving buffer is too small
+			printf("error: receiver buffer too small\n"); 			
+			return 0;
+		}
+		
+		if (write_snd_buf(buf, len) == -1) {			
+			printf("error: writer buffer too small\n");
+			return 0;
+		}
+
+		if (len > DEFAULT_MTU - sizeof(ip_packet_t) - TCP_HEADER_SIZE) {
+			printf("error: packet too big\n");
+			return 0; 
+		}
+	
+		gpacket_t *gpkt = (gpacket_t *) malloc(sizeof(gpacket_t));
+
+		if (gpkt == NULL) {			
+			printf("error: gpkt not allocated\n");
+			return 0;
+		}
+
+		ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
+		ip->ip_hdr_len = 5;
+
+		tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
+
+		uchar tmpbuf[4] = {0};
+		COPY_IP(ip->ip_dst, gHtonl(tmpbuf, tcb.remote_ip));
+		COPY_IP(ip->ip_src, gHtonl(tmpbuf, tcb.local_ip));
+
+		
+		tcb.recv_nxt = tcb.recv_nxt +1;
+		tcb.snd_nxt = tcb.snd_nxt +1;
+		hdr->ack = htonl(tcb.recv_nxt);
+		printf("check: ack: %lo \n", tcb.recv_nxt);
+		hdr->seq = htonl(tcb.snd_nxt);
+		printf("check: seq: %lo \n", tcb.snd_nxt);
+		hdr->src = htons(tcb.local_port);
+		printf("check: local: %d \n", tcb.local_port);
+		hdr->dst = htons(tcb.remote_port);
+		printf("check: remote: %d \n", tcb.remote_port);
+		hdr->data_off = 5;
+		hdr->flags = ACK;
+		hdr->checksum = 0;
+		hdr->reserved = 0;
+		hdr->urg = 0;
+		hdr->win = htons(tcb.recv_win);
+		printf("check: window: %lo \n", tcb.recv_win);
+		
+		memcpy((uchar *) hdr+TCP_HEADER_SIZE, buf, len);
+
+		hdr->checksum = htons(tcp_checksum(ip->ip_src, ip->ip_dst, hdr, len));
+		if (hdr->checksum == 0) {
+			hdr->checksum = ~hdr->checksum;
+		}
+		tcb.sndtm = time(NULL);
+//		printf("check: sendtime: %s \n", tcb.sndtm);
+		IPOutgoingPacket(gpkt, gNtohl(tmpbuf, ip->ip_src), hdr->data_off * 4, 1, TCP_PROTOCOL);	
+	}
+
+	else {
+		printf("error: I don't know what happen\n");
+		return 0;
+	}
+
+	return 1;
+}
 
 // only accept idealized segments starting at recv.next and smaller/equal to window size
 // according to rfc wording this is ok
@@ -527,6 +636,7 @@ void check4TimeWaitTimeOut()
 		verbose(2, "[tcp_recv]:: WAIT TIMEOUT");
 	}
 }
+
 
 int process_ack(gpacket_t *gpkt)
 {
@@ -639,7 +749,6 @@ void incoming_fin()
 }
 
 
-
 void tcp_recv(gpacket_t *gpkt)
 {
 	int packet_acceptable = 0;
@@ -651,6 +760,7 @@ void tcp_recv(gpacket_t *gpkt)
 	uint16_t tcp_data_len = ipPacketLength - ip->ip_hdr_len * 4 - hdr->data_off * 4; 
 
 	uint8_t *data = (uint8_t *) hdr + hdr->data_off * 4;
+
 
 	// je suis le rfc, derniere section qui explique etape par etape
 
@@ -722,6 +832,9 @@ void tcp_recv(gpacket_t *gpkt)
 							tcb.recv_nxt += tcp_data_len;
 						}
 					}
+					//Calculate the round trip time
+					tcb.rcvtm = clock();
+					calc_rtt();
 
 					send_ack(gpkt);
 				}
@@ -744,10 +857,6 @@ void tcp_recv(gpacket_t *gpkt)
 		}
 	}
 }
-
-
-
-
 
 
 int tcp_close()

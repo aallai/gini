@@ -14,6 +14,8 @@
 #define URG 0x20
 #define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 
+#define TCP_HEADER_SIZE 20
+
 // header
 
 typedef struct tcphdr {

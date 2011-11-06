@@ -28,6 +28,7 @@
 #include "classspec.h"
 #include "packetcore.h"
 #include "udp.h"
+#include "tcp.h"
 #include "ports.h" 
 #include "protocols.h"
 #include <slack/err.h>
@@ -940,7 +941,7 @@ void tcp_nc()
 
 			printf("%s", data);
 
-		/*	memset(data, 0, DEFAULT_MTU);
+			memset(data, 0, DEFAULT_MTU);
 			printf("L: ");
 			fgets(data, DEFAULT_MTU, stdin);
 
@@ -948,7 +949,7 @@ void tcp_nc()
 				return;
 			}
 
-			tcp_send(data, strlen(data));*/
+			tcp_send(data, strlen(data));
 		}
 	} else {     // connect
 
@@ -984,7 +985,7 @@ void tcp_nc()
 
 		while (1) {
 
-			/*
+			
 			memset(data, 0, DEFAULT_MTU);
                         printf("L: ");
                         fgets(data, DEFAULT_MTU, stdin);
@@ -993,8 +994,10 @@ void tcp_nc()
                                 return;
                         }
 
-                        tcp_send(data, strlen(data));
-			*/		
+                        if(!tcp_send(data, strlen(data))){
+				return;
+			}
+					
 
                         memset(data, 0, DEFAULT_MTU);
                         printf("R: ");
