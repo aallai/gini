@@ -606,7 +606,7 @@ int tcp_send(uchar *buf, int len)
 		return 0;
 	}
 
-	else if(read_state() == ESTABLISHED){
+	else if(read_state() == ESTABLISHED || read_state() == CLOSE_WAIT){
 		// check if data is too big
 		if(tcb.snd_win < len) {
 		// the receiving buffer is too small
@@ -666,6 +666,7 @@ int tcp_send(uchar *buf, int len)
 	}
 
 	else {
+		printf("error: connection closing");
 		return 0;
 	}
 
