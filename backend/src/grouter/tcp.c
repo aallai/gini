@@ -99,8 +99,6 @@ void print_tcp_packet(gpacket_t *gpkt)
 	printf("\n");
 }
 
-void set_timer(int ms, )
-
 void reset_tcb_state()
 {
 	memset(&tcb, 0, sizeof(struct tcb_t));
