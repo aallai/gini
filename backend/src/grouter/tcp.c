@@ -127,9 +127,9 @@ int seq_to_off(uint32_t seq, uint32_t initial)
 // gets the length of the unacknowledgement space
 long get_una_size(){
 	long una = seq_to_off(tcb.snd_una, tcb.iss);
-	long length= (tcb.snd_head - una);
-	if(una > tcb.snd_head){
-		length = ((tcb.snd_head + BUFSIZE - una)% BUFSIZE);
+	long length= (tcb.last_sent - una);
+	if(una > tcb.last_sent){
+		length = ((tcb.last_sent + BUFSIZE - una)% BUFSIZE);
 	} 
 	return length;
 }
@@ -708,6 +708,55 @@ int tcp_send(uchar *buf, int len)
 
 	
 	return 1;
+}
+
+// 
+int tcp_resend(){
+	gpacket_t *gpkt = (gpacket_t *) calloc(1, sizeof(gpacket_t));
+
+	if (gpkt == NULL) {			
+		return 0;
+	}
+
+	ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
+	ip->ip_hdr_len = 5;
+
+	tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
+
+	uchar tmpbuf[4] = {0};
+	COPY_IP(ip->ip_dst, gHtonl(tmpbuf, tcb.remote_ip));
+	COPY_IP(ip->ip_src, gHtonl(tmpbuf, tcb.local_ip));
+
+	hdr->ack = htonl(tcb.recv_nxt);
+	hdr->seq = htonl(tcb.snd_una);
+	hdr->src = htons(tcb.local_port);
+	hdr->dst = htons(tcb.remote_port);
+	hdr->data_off = 5;
+	hdr->flags = ACK;
+	hdr->checksum = 0;
+	hdr->reserved = 0;
+	hdr->urg = 0;
+	hdr->win = htons(tcb.recv_win);
+	
+	//data
+	int size = get_una_size();
+	if(tcb.snd_win < size) {
+		size = tcb.snd_win;
+	}
+	size = copy_una((uchar *) hdr + hdr->data_off * 4, size);
+	if(size == 0){ //don't send an empty packet
+		return 1;
+	}
+
+	hdr->checksum = htons(tcp_checksum(ip->ip_src, ip->ip_dst, hdr, size));
+	if (hdr->checksum == 0) {
+		hdr->checksum = ~hdr->checksum;
+	}
+	tcb.sndtm = time(NULL);
+
+	IPOutgoingPacket(gpkt, gNtohl(tmpbuf, ip->ip_dst), hdr->data_off * 4 + size, 1, TCP_PROTOCOL);	
+
+
 }
 
 // only accept idealized segments starting at recv.next and smaller/equal to window size
