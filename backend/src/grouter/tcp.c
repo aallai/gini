@@ -10,6 +10,7 @@
 #include <string.h>
 #include <time.h>
 #include <pthread.h>
+#include <signal.h>
 
 void set_state(int);
 
@@ -95,9 +96,7 @@ void print_tcp_packet(gpacket_t *gpkt)
 	{
 		printf("Flag: URG\n");
 	}
-	printf("data %s \n");
 	printf("\n");
-
 }
 
 void reset_tcb_state()
@@ -329,12 +328,10 @@ int tcp_connect(ushort local, uchar *dest_ip, ushort dest_port)
 	hdr->src = htons(tcb.local_port);
 	hdr->dst = htons(tcb.remote_port);
 	hdr->seq = htonl(tcb.iss);
-	printf("check: connect: seq: %lo \n",tcb.iss );
 	hdr->data_off = 5;
 	hdr->flags = SYN;
 	hdr->checksum = 0;
 	hdr->win = htons(tcb.recv_win);
-	printf("check: connect: win: %lo \n",tcb.recv_win );
 
 	hdr->checksum = htons(tcp_checksum(ip->ip_src, ip->ip_dst, hdr, 0));
 	if (hdr->checksum == 0) {
@@ -342,10 +339,9 @@ int tcp_connect(ushort local, uchar *dest_ip, ushort dest_port)
 	}				
 
 	tcb.sndtm = time(NULL);
-//	printf("check: connect: sendtime: %d \n",tcb.sndtm );
+
 	IPOutgoingPacket(gpkt, tcb.remote_ip, hdr->data_off * 4, 1, TCP_PROTOCOL);
 
-	printf("state -> SYN_SENT\n");
 	set_state(SYN_SENT);
 
 	return 1;		
@@ -437,12 +433,9 @@ void send_ack(gpacket_t *gpkt)
 	hdr->src = hdr->dst;
 	hdr->dst = tmp_port;
 	hdr->ack = htonl(tcb.recv_nxt);
-	printf("check: ack: ack: %lo \n",tcb.recv_nxt );
 	hdr->seq = htonl(tcb.snd_nxt);	
-	printf("check: ack: seq: %lo \n",tcb.snd_nxt );
 	hdr->data_off = 5;
 	hdr->win = htons(tcb.recv_win);
-	printf("check: ack: window: %lo \n",tcb.recv_win );
 	hdr->urg = 0;
 	hdr->checksum = 0;
 	hdr->reserved = 0;
@@ -472,11 +465,10 @@ void send_fin(gpacket_t *gpkt)
 	hdr->dst = tmp_port;
 	hdr->ack = 0;
 	printf("check: ack: ack: %lo \n",tcb.recv_nxt );
+	hdr->ack = htonl(tcb.recv_nxt);
 	hdr->seq = htonl(tcb.snd_nxt);	
-	printf("check: ack: seq: %lo \n",tcb.snd_nxt );
 	hdr->data_off = 5;
 	hdr->win = htons(tcb.recv_win);
-	printf("check: ack: window: %lo \n",tcb.recv_win );
 	hdr->urg = 0;
 	hdr->checksum = 0;
 	hdr->reserved = 0;
@@ -540,7 +532,6 @@ void incoming_listen(gpacket_t *gpkt)
 
 		send_synack(gpkt);
 
-		printf("state -> SYN_RECV\n");
 		set_state(SYN_RECV);
 		return;
 	}
@@ -572,7 +563,6 @@ void incoming_syn_sent(gpacket_t *gpkt)
 	// reset
 	if (hdr->flags & RST) {
 		if (valid_ack) {
-			printf("state -> CLOSED\n");
 			set_state(CLOSED);
 		} 
 		free(gpkt);
@@ -588,13 +578,11 @@ void incoming_syn_sent(gpacket_t *gpkt)
 			tcb.snd_una = ntohl(hdr->ack);
 
 			send_ack(gpkt);
-			printf("state -> ESTABLISHED\n");	
 			set_state(ESTABLISHED);
 			return;
 
 		} else {
 			send_synack(gpkt);
-			printf("state -> SYN_RECV\n");
 			set_state(SYN_RECV);		
 		}
 	} 
@@ -620,7 +608,7 @@ int tcp_send(uchar *buf, int len)
 		return 0;
 	}
 
-	else if(read_state() == ESTABLISHED){
+	else if(read_state() == ESTABLISHED || read_state() == CLOSE_WAIT){
 		// check if data is too big
 		if(tcb.snd_win < len) {
 		// the receiving buffer is too small
@@ -680,7 +668,7 @@ int tcp_send(uchar *buf, int len)
 	}
 
 	else {
-		printf("error: I don't know what happen\n");
+		printf("error: connection closing");
 		return 0;
 	}
 
@@ -847,7 +835,6 @@ int incoming_ack(gpacket_t *gpkt)
 
 void incoming_fin() 
 {
-	printf("Incoming fin \n");
 	if ( (read_state() == SYN_RECV) || (read_state() == ESTABLISHED) )
 	{
 		set_state(CLOSE_WAIT);
