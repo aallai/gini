@@ -56,6 +56,7 @@ struct tcb_t {
 	time_t rcvtm;	//time at which the ack was received
 
 	int snd_head;
+	int last_sent;
 	uchar snd_buf[BUFSIZE];
 
 } tcb;
@@ -123,6 +124,25 @@ int seq_to_off(uint32_t seq, uint32_t initial)
 	return (seq - initial - 1) % BUFSIZE;
 }
 
+// gets the length of the unacknowledgement space
+long get_una_size(){
+	long una = seq_to_off(tcb.snd_una, tcb.iss);
+	long length= (tcb.snd_head - una);
+	if(una > tcb.snd_head){
+		length = ((tcb.snd_head + BUFSIZE - una)% BUFSIZE);
+	} 
+	return length;
+}
+
+// gets the length of the unsent space
+long get_unsent_size(){
+	long available = tcb.snd_head - tcb.last_sent;
+	if(tcb.last_sent > tcb.snd_head){
+		available = ((tcb.snd_head + BUFSIZE - tcb.last_sent)% BUFSIZE);
+	} 
+	return available;
+}
+
 // remember to update snd_una and snd_next
 
 // write len bytes starting from data in to circular buffer, returns -1 on error
@@ -155,7 +175,10 @@ int write_snd_buf(uchar *data, int len)
  **/
 int copy_una(uchar *buf, int len)
 {
-	long available = tcb.snd_nxt - tcb.snd_una;
+	long available = get_una_size();
+	if(available > (DEFAULT_MTU - sizeof(ip_packet_t) - TCP_HEADER_SIZE)){
+		available = DEFAULT_MTU - sizeof(ip_packet_t) - TCP_HEADER_SIZE;
+	}
 
 	if (available < len) {
 		memcpy(buf, tcb.snd_buf + seq_to_off(tcb.snd_una, tcb.iss), available);
@@ -169,13 +192,18 @@ int copy_una(uchar *buf, int len)
 /** Same as above buf copies unsent data into buf, returns count of bytes copied. **/
 int copy_unsent(uchar *buf, int len)
 {
-	long available = tcb.snd_head - tcb.snd_nxt;
+	long available = get_unsent_size();
+	if(available > (DEFAULT_MTU - sizeof(ip_packet_t) - TCP_HEADER_SIZE)){
+		available = DEFAULT_MTU - sizeof(ip_packet_t) - TCP_HEADER_SIZE;
+	}
 
 	if (available < len) {
 		memcpy(buf, tcb.snd_buf + seq_to_off(tcb.snd_nxt, tcb.iss), available);
+		tcb.last_sent = (available + tcb.last_sent) % BUFSIZE; 
 		return available;
 	} else {
 		memcpy(buf, tcb.snd_buf + seq_to_off(tcb.snd_nxt, tcb.iss), len);
+		tcb.last_sent = (len + tcb.last_sent) % BUFSIZE; 
 		return len;
 	} 	
 }
@@ -302,6 +330,8 @@ int tcp_connect(ushort local, uchar *dest_ip, ushort dest_port)
 	memcpy(tcb.remote_ip, dest_ip, 4);
 	tcb.remote_port = dest_port;
 	tcb.type = ACTIVE;
+	tcb.snd_head = 0;
+	tcb.last_sent = 0;
 
 	// send a SYN packet 
 	// calloc gives zeroed out mem
@@ -518,6 +548,9 @@ void incoming_listen(gpacket_t *gpkt)
 		tcb.recv_nxt = ntohl(hdr->seq) + 1;
 		tcb.irs = ntohl(hdr->seq);
 
+		tcb.snd_head = 0;
+		tcb.last_sent = 0;		
+
 		tcb.iss = sequence_gen();
 		tcb.snd_nxt = tcb.iss + 1;
 		tcb.snd_una = tcb.iss;
@@ -590,10 +623,7 @@ void incoming_syn_sent(gpacket_t *gpkt)
 	}
 }
 
-
-
-
-
+//return 1 if succeed , 0 if failed
 int tcp_send(uchar *buf, int len)
 {
 	if(read_state() == CLOSED){
@@ -606,28 +636,27 @@ int tcp_send(uchar *buf, int len)
 		return 0;
 	}
 
+	else if(read_state() == SYN_SENT  || read_state() == SYN_RECV){
+		if(len != 0) {
+			if (write_snd_buf(buf, len) == -1) {			
+				printf("error: insufficient resources\n");
+				return 0;
+			}	
+		}	
+	}
+
 	else if(read_state() == ESTABLISHED || read_state() == CLOSE_WAIT){
 		// check if data is too big
-		if(tcb.snd_win < len) {
-		// the receiving buffer is too small
-			printf("error: receive window too small\n"); 			
-			return 0;
-		}
-		
-		if (write_snd_buf(buf, len) == -1) {			
-			printf("error: send buffer too small\n");
-			return 0;
+		if(len != 0){
+			if (write_snd_buf(buf, len) == -1) {			
+				printf("error: insufficient resources\n");
+				return 0;
+			}
 		}
 
-		if (len > DEFAULT_MTU - sizeof(ip_packet_t) - TCP_HEADER_SIZE) {
-			printf("error: packet too big\n");
-			return 0; 
-		}
-	
 		gpacket_t *gpkt = (gpacket_t *) calloc(1, sizeof(gpacket_t));
 
 		if (gpkt == NULL) {			
-			printf("error: gpkt not allocated\n");
 			return 0;
 		}
 
@@ -651,16 +680,23 @@ int tcp_send(uchar *buf, int len)
 		hdr->urg = 0;
 		hdr->win = htons(tcb.recv_win);
 		
-		memcpy((uchar *) hdr + hdr->data_off * 4, buf, len);
+		//data
+		int size = get_unsent_size();
+		if(tcb.snd_win < size) {
+			size = tcb.snd_win;
+		}
+		size = copy_unsent((uchar *) hdr + hdr->data_off * 4, size);
+		if(size == 0){ //don't send an empty packet
+			return 1;
+		}
 
-
-		hdr->checksum = htons(tcp_checksum(ip->ip_src, ip->ip_dst, hdr, len));
+		hdr->checksum = htons(tcp_checksum(ip->ip_src, ip->ip_dst, hdr, size));
 		if (hdr->checksum == 0) {
 			hdr->checksum = ~hdr->checksum;
 		}
 		tcb.sndtm = time(NULL);
 
-		IPOutgoingPacket(gpkt, gNtohl(tmpbuf, ip->ip_dst), hdr->data_off * 4 + len, 1, TCP_PROTOCOL);	
+		IPOutgoingPacket(gpkt, gNtohl(tmpbuf, ip->ip_dst), hdr->data_off * 4 + size, 1, TCP_PROTOCOL);	
 
 		tcb.snd_nxt += len;
 	}
@@ -759,7 +795,12 @@ int process_ack(gpacket_t *gpkt)
 			tcb.snd_win = win;
 			tcb.snd_wl1 = seq;
 			tcb.snd_wl2 = ack;
-		}   
+		} 
+
+		//send remaining packets
+		if(get_unsent_size > 0){
+			tcp_send(NULL,0);
+		}  
 
 		return 1; 
 
