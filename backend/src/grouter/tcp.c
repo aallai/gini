@@ -19,6 +19,11 @@ void set_state(int);
  * might need to put this in a struct later, since all this needs to be reset
  * for every new connection **/
 
+struct tcp_timer {
+	timer_t tid;
+        struct sigevent sev;
+}
+
 struct tcb_t {
 
 	int state;                // the actual connection state
@@ -97,6 +102,11 @@ void print_tcp_packet(gpacket_t *gpkt)
 		printf("Flag: URG\n");
 	}
 	printf("\n");
+}
+
+void set_timer(int ms)
+{
+
 }
 
 void reset_tcb_state()
