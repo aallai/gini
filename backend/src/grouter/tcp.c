@@ -11,6 +11,9 @@
 #include <time.h>
 #include <pthread.h>
 #include <signal.h>
+#include <unistd.h>
+
+
 
 void set_state(int);
 
@@ -50,10 +53,16 @@ struct tcb_t {
 	unsigned long irs;        // initial sequence number
 
 	// for timeout
-	unsigned long rtt;	//round trip time
-	unsigned long srtt;	//smooth round trip time
-	time_t sndtm;	// time at which the packet is send	
-	time_t rcvtm;	//time at which the ack was received
+	int retran;		// the number of the retransmission
+	int exit;		// to know which timer we need: retransmission or exit
+	timer_t timer;		//self explanatory
+ 	struct itimerspec itime;	// gives the interval and the time to wait
+	struct sigevent event;		// to create a new thread
+	unsigned long timer_una;	// una that the timer is waiting for
+	struct timespec rtt;	//round trip time
+	struct timespec stt;	//smooth round trip time
+	struct timespec sndtm;	// time at which the packet is send	
+	struct timespec rcvtm;	//time at which the ack was received
 
 	int snd_head;
 	int last_sent;
@@ -106,6 +115,13 @@ void reset_tcb_state()
 	set_state(CLOSED);
 	pthread_mutex_init(&tcb.state_lock, NULL);
 	tcb.recv_win = DEFAULT_WINSIZE;
+	tcb.exit  = -1;
+	tcb.retran = 0;
+	tcb.rtt.tv_sec = 0;
+        tcb.rtt.tv_nsec = 0;
+	tcb.stt.tv_sec = 0;
+        tcb.stt.tv_nsec = 0;
+	
 }
 
 void init_tcp()
@@ -113,8 +129,25 @@ void init_tcp()
 	reset_tcb_state();
 }
 
-void calc_rtt(){
-	tcb.rtt = tcb.rcvtm - tcb.sndtm;
+void calc_stt(){
+	if ((	tcb.rcvtm.tv_nsec - tcb.sndtm.tv_nsec) < 0) {
+		tcb.rtt.tv_sec = tcb.rcvtm.tv_sec - tcb.sndtm.tv_sec-1;
+		tcb.rtt.tv_nsec = NSECS_PER_SEC + tcb.rcvtm.tv_nsec - tcb.sndtm.tv_nsec;
+	} else {
+		tcb.rtt.tv_sec = tcb.rcvtm.tv_sec - tcb.sndtm.tv_sec;
+		tcb.rtt.tv_nsec = tcb.rcvtm.tv_nsec - tcb.sndtm.tv_nsec;
+	}
+
+	tcb.stt.tv_sec = ALPHA*tcb.stt.tv_sec + (1-ALPHA)*tcb.rtt.tv_sec;
+        tcb.stt.tv_nsec = ALPHA*tcb.stt.tv_nsec + (1-ALPHA)*tcb.rtt.tv_nsec;
+        if (tcb.stt.tv_nsec < 0) {
+                tcb.stt.tv_sec--;
+                tcb.stt.tv_nsec += NSECS_PER_SEC;
+        }
+        if (tcb.stt.tv_nsec >= NSECS_PER_SEC) {
+                tcb.stt.tv_sec++;
+                tcb.stt.tv_nsec -= NSECS_PER_SEC;
+        }	
 }
 
 // converts seq from sequence space to buffer space using intial as initial sequence number
@@ -368,7 +401,7 @@ int tcp_connect(ushort local, uchar *dest_ip, ushort dest_port)
 		hdr->checksum = ~hdr->checksum;
 	}				
 
-	tcb.sndtm = time(NULL);
+	clock_gettime(CLOCK_REALTIME, &tcb.sndtm);
 
 	IPOutgoingPacket(gpkt, tcb.remote_ip, hdr->data_off * 4, 1, TCP_PROTOCOL);
 
@@ -586,8 +619,8 @@ void incoming_syn_sent(gpacket_t *gpkt)
 			}
 			return;
 		}
-		tcb.rcvtm = time(NULL);
-		calc_rtt();
+		clock_gettime(CLOCK_REALTIME, &tcb.rcvtm);
+		calc_stt();
 		valid_ack = 1;
 	}
 
@@ -694,11 +727,15 @@ int tcp_send(uchar *buf, int len)
 		if (hdr->checksum == 0) {
 			hdr->checksum = ~hdr->checksum;
 		}
-		tcb.sndtm = time(NULL);
+		
+		clock_gettime(CLOCK_REALTIME, &tcb.sndtm);
 
 		IPOutgoingPacket(gpkt, gNtohl(tmpbuf, ip->ip_dst), hdr->data_off * 4 + size, 1, TCP_PROTOCOL);	
 
 		tcb.snd_nxt += len;
+		
+		tcb.timer_una = tcb.snd_una;
+		start_timewait_timer(-1);
 	}
 
 	else {
@@ -710,7 +747,7 @@ int tcp_send(uchar *buf, int len)
 	return 1;
 }
 
-// 
+// it is a simple resend
 int tcp_resend(){
 	gpacket_t *gpkt = (gpacket_t *) calloc(1, sizeof(gpacket_t));
 
@@ -752,11 +789,11 @@ int tcp_resend(){
 	if (hdr->checksum == 0) {
 		hdr->checksum = ~hdr->checksum;
 	}
-	tcb.sndtm = time(NULL);
+	clock_gettime(CLOCK_REALTIME, &tcb.sndtm);
 
 	IPOutgoingPacket(gpkt, gNtohl(tmpbuf, ip->ip_dst), hdr->data_off * 4 + size, 1, TCP_PROTOCOL);	
-
-
+	tcb.retran++;
+	start_timewait_timer(-1);
 }
 
 // only accept idealized segments starting at recv.next and smaller/equal to window size
@@ -813,8 +850,55 @@ void incoming_misplaced_syn(gpacket_t *gpkt)
 	set_state(CLOSED);
 }
 
-void start_timewait_timer()
+void timer_handler(){
+	if(tcb.exit < 0){
+		if(tcb.snd_una > tcb.timer_una){// we have receive the ack
+			tcb.timer_una = tcb.snd_una;
+			timer_delete(tcb.timer);
+			tcb.retran = 0;
+			return;
+		} else {
+			if(tcb.retran == MAXDATARETRANSMISSIONS){
+				tcb.retran = 0;
+				verbose(2, "[tcp_retransmission]:: Connection INACCESSIBLE");
+				tcp_close();
+				return;
+			} else {
+				tcp_resend();
+			}
+		}
+	} else {
+		timer_delete(tcb.timer);
+		return;
+	}
+
+}
+
+// time in seconds, if time < 0, it is for the retransmission
+int start_timewait_timer(int time)
 {
+	tcb.event.sigev_notify = SIGEV_THREAD;
+   	tcb.event.sigev_notify_function = timer_handler;
+    	tcb.event.sigev_notify_attributes = NULL;
+		
+	int status = timer_create(CLOCK_REALTIME, &tcb.event, &tcb.timer);
+        if (status < 0) {
+               return -1;
+        }
+	
+	if(time < 0){ // use STT
+		tcb.itime.it_value.tv_sec = BETA*tcb.stt.tv_sec;
+   		tcb.itime.it_value.tv_nsec = BETA*tcb.stt.tv_nsec; 
+	} else {// use time
+		tcb.itime.it_value.tv_sec = time;
+   		tcb.itime.it_value.tv_nsec = 0; 
+	}
+   	tcb.itime.it_interval.tv_sec = 0;
+   	tcb.itime.it_interval.tv_nsec = 0; 
+
+   	timer_settime(tcb.timer, 0, &tcb.itime, NULL);
+
+	return 0;
 }
 
 void check4TimeWaitTimeOut()
@@ -845,7 +929,12 @@ int process_ack(gpacket_t *gpkt)
 			tcb.snd_wl1 = seq;
 			tcb.snd_wl2 = ack;
 		} 
-
+		//check if the timer
+		if(tcb.snd_una == tcb.timer_una){
+			timer_delete(tcb.timer);
+			tcb.timer_una = tcb.snd_una;
+			tcb.retran = 0;
+		} 
 		//send remaining packets
 		if(get_unsent_size > 0){
 			tcp_send(NULL,0);
@@ -930,17 +1019,17 @@ void incoming_fin()
 	else if ( read_state() == FIN_WAIT1 ) 
 	{
 		// ENTER CLOSING STATE IF NOT ACKED...WONT HAPPEN
-		start_timewait_timer();
+		start_timewait_timer(0);//TODO: figure out what time goes here
 		set_state(TIME_WAIT);
 	}
 	else if ( read_state() == FIN_WAIT2 ) 
 	{
-		start_timewait_timer();
+		start_timewait_timer(0);//TODO: figure out what time goes here
 		set_state(TIME_WAIT);
 	}
 	else if ( read_state() == TIME_WAIT ) 
-	{
-		start_timewait_timer();
+	{	//TODO: figure out what time goes here
+		start_timewait_timer(0);
 	}
 }
 
@@ -1038,8 +1127,8 @@ void tcp_recv(gpacket_t *gpkt)
 
 				}
 				//Calculate the round trip time
-				tcb.rcvtm = clock();
-				calc_rtt();	
+				clock_gettime(CLOCK_REALTIME, &tcb.rcvtm);
+				calc_stt();	
 			}
 			else if ( read_state() == CLOSE_WAIT ) 
 			{
