@@ -1095,8 +1095,7 @@ void tcp_recv(gpacket_t *gpkt)
 	uint16_t tcp_data_len = ipPacketLength - ip->ip_hdr_len * 4 - hdr->data_off * 4; 
 
 	uint8_t *data = (uint8_t *) hdr + hdr->data_off * 4;
-		
-
+	
 	// je suis le rfc, derniere section qui explique etape par etape
 
 	if (read_state() == CLOSED) 
@@ -1172,7 +1171,6 @@ void tcp_recv(gpacket_t *gpkt)
 					} else {
 						tcb.recv_win = DEFAULT_WINSIZE;
 						tcb.recv_nxt += tcp_data_len;
-
 						send_ack(gpkt);
 					}
 
