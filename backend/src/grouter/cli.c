@@ -995,9 +995,7 @@ void tcp_nc()
                                 return;
                         }
 
-                        if(!tcp_send(data, strlen(data))){
-				return;
-			}
+                        tcp_send(data, strlen(data));
 					
 			
                         memset(data, 0, DEFAULT_MTU);
