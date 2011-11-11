@@ -22,6 +22,7 @@ void set_state(int);
 struct tcp_timer {
 	timer_t tid;
         struct sigevent sev;
+	
 }
 
 struct tcb_t {
