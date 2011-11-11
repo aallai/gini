@@ -15,6 +15,7 @@
 
 void set_state(int);
 void timer_handler();
+void timer_handler_send_resend();
 
 /** state variables, only one active connection so there not in a struct
  * our version of the TCB from the rfc
@@ -62,7 +63,10 @@ struct tcb_t {
 	struct timespec sndtm;	// time at which the packet is send	
 	struct timespec rcvtm;	//time at which the ack was received
 
-
+	//Timer for fin_wait and else
+	timer_t timer_wait;
+	struct itimerspec itime_wait;	// gives the interval and the time to wait
+	struct sigevent event_wait;	
 
 	int snd_head;
 	uchar snd_buf[BUFSIZE];
@@ -121,21 +125,26 @@ void reset_tcb_state()
 	tcb.stt.tv_sec = 0;
         tcb.stt.tv_nsec = 0;
 
-
+	// timer pour send resend
 	tcb.event.sigev_notify = SIGEV_THREAD;
-   	tcb.event.sigev_notify_function = timer_handler;
+   	tcb.event.sigev_notify_function = timer_handler_send_resend;
     	tcb.event.sigev_notify_attributes = NULL;
 		
 	int status = timer_create(CLOCK_REALTIME, &tcb.event, &tcb.timer);
         if (status < 0) {
                return;
         }
-	tcb.itime.it_value.tv_sec = 0;
-   	tcb.itime.it_value.tv_nsec = 0;
-   	tcb.itime.it_interval.tv_sec = 0;
-   	tcb.itime.it_interval.tv_nsec = 0; 
 
-   	timer_settime(tcb.timer, 0, &tcb.itime, NULL);
+	// timer pour wait and close
+	tcb.event_wait.sigev_notify = SIGEV_THREAD;
+   	tcb.event_wait.sigev_notify_function = timer_handler;
+    	tcb.event_wait.sigev_notify_attributes = NULL;
+		
+	status = timer_create(CLOCK_REALTIME, &tcb.event_wait, &tcb.timer_wait);
+        if (status < 0) {
+               return;
+        }
+
 }
 
 void init_tcp()
@@ -758,7 +767,7 @@ int tcp_send(uchar *buf, int len)
 		tcb.snd_nxt += size;
 		
 		tcb.timer_una = tcb.snd_una;
-		start_timewait_timer(-1);
+		start_timer_STT();
 	}
 
 	else {
@@ -817,7 +826,7 @@ int tcp_resend(){
 
 	IPOutgoingPacket(gpkt, gNtohl(tmpbuf, ip->ip_dst), hdr->data_off * 4 + size, 1, TCP_PROTOCOL);	
 	tcb.retran++;
-	start_timewait_timer(-1);
+	start_timer_STT();
 }
 
 // only accept idealized segments starting at recv.next and smaller/equal to window size
@@ -874,6 +883,27 @@ void incoming_misplaced_syn(gpacket_t *gpkt)
 	set_state(CLOSED);
 }
 
+void timer_handler_send_resend(){
+	if(read_state() == ESTABLISHED){
+		//check if the timer is still alive
+		if(tcb.snd_una > tcb.timer_una){
+			tcb.timer_una = tcb.snd_una;
+			tcb.retran = 0;
+		} else {
+			if(tcb.retran == MAXDATARETRANSMISSIONS){
+				tcb.retran = 0;
+				verbose(1, "[tcp_retransmission]:: Connection INACCESSIBLE");
+				tcp_close();
+				return;
+			} else {
+				printf("Time to resend\n");
+				tcp_resend();
+			}
+		}
+	} 
+
+}
+
 void timer_handler(){
 	if(read_state() == ESTABLISHED){
 		//check if the timer is still alive
@@ -903,21 +933,29 @@ void timer_handler(){
 
 }
 
-// time in seconds, if time < 0, it is for the retransmission
-//time == 0 it stops timer
-int start_timewait_timer(int time)
+// time in seconds, use STT for sed and resend
+int start_timer_STT()
 {	
-	if(time < 0){ // use STT
-		tcb.itime.it_value.tv_sec = BETA*tcb.stt.tv_sec;
-   		tcb.itime.it_value.tv_nsec = BETA*tcb.stt.tv_nsec; 
-	} else {// use time
-		tcb.itime.it_value.tv_sec = time;
-   		tcb.itime.it_value.tv_nsec = 0; 
-	}
+	tcb.itime.it_value.tv_sec = BETA*tcb.stt.tv_sec;
+   	tcb.itime.it_value.tv_nsec = BETA*tcb.stt.tv_nsec; 
    	tcb.itime.it_interval.tv_sec = 0;
    	tcb.itime.it_interval.tv_nsec = 0; 
 
    	timer_settime(tcb.timer, 0, &tcb.itime, NULL);
+
+	return 0;
+}
+
+// time in seconds
+//time == 0 it stops timer
+int start_timewait_timer(int time)
+{	
+	tcb.itime_wait.it_value.tv_sec = time;
+   	tcb.itime_wait.it_value.tv_nsec = 0; 
+   	tcb.itime_wait.it_interval.tv_sec = 0;
+   	tcb.itime_wait.it_interval.tv_nsec = 0; 
+
+   	timer_settime(tcb.timer_wait, 0, &tcb.itime_wait, NULL);
 
 	return 0;
 }
