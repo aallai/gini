@@ -13,8 +13,6 @@
 #include <signal.h>
 #include <unistd.h>
 
-
-
 void set_state(int);
 void timer_handler();
 
@@ -64,7 +62,7 @@ struct tcb_t {
 	struct timespec sndtm;	// time at which the packet is send	
 	struct timespec rcvtm;	//time at which the ack was received
 
-	int ack;
+
 
 	int snd_head;
 	uchar snd_buf[BUFSIZE];
@@ -122,8 +120,7 @@ void reset_tcb_state()
 	tcb.stt.tv_sec = 0;
         tcb.stt.tv_nsec = 0;
 
-	tcb.ack = 0;
-	
+
 	tcb.event.sigev_notify = SIGEV_THREAD;
    	tcb.event.sigev_notify_function = timer_handler;
     	tcb.event.sigev_notify_attributes = NULL;
@@ -169,7 +166,7 @@ void calc_stt(){
 // converts seq from sequence space to buffer space using intial as initial sequence number
 int seq_to_off(uint32_t seq, uint32_t initial)
 {
-	// one sequence number used up by SYN, not in buffer
+	// one sequence number used up by SYN, not in buffer, we account for this elsewhere
 	return (seq - initial) % BUFSIZE;
 }
 
@@ -429,7 +426,6 @@ int tcp_connect(ushort local, uchar *dest_ip, ushort dest_port)
 // send a RST in response to segment gpkt
 void send_rst(gpacket_t *gpkt)
 {
-	printf("SUPER RESET\n");
 	uchar tmp[4];
 	uint16_t tmp_port;
 
@@ -768,7 +764,6 @@ int tcp_send(uchar *buf, int len)
 
 // it is a simple resend
 int tcp_resend(){
-	printf("TCP_RESEND\n");
 	gpacket_t *gpkt = (gpacket_t *) calloc(1, sizeof(gpacket_t));
 
 	if (gpkt == NULL) {			
@@ -878,7 +873,6 @@ void timer_handler(){
 			tcb.timer_una = tcb.snd_una;
 			tcb.retran = 0;
 		} else {
-			printf("HANDLER\n");
 			if(tcb.retran == MAXDATARETRANSMISSIONS){
 				tcb.retran = 0;
 				verbose(1, "[tcp_retransmission]:: Connection INACCESSIBLE");
@@ -1060,8 +1054,7 @@ void tcp_recv(gpacket_t *gpkt)
 	uint16_t tcp_data_len = ipPacketLength - ip->ip_hdr_len * 4 - hdr->data_off * 4; 
 
 	uint8_t *data = (uint8_t *) hdr + hdr->data_off * 4;
-	
-	
+		
 
 	// je suis le rfc, derniere section qui explique etape par etape
 
@@ -1137,7 +1130,8 @@ void tcp_recv(gpacket_t *gpkt)
 					} else {
 						tcb.recv_win = DEFAULT_WINSIZE;
 						tcb.recv_nxt += tcp_data_len;
-						//send_ack(gpkt);
+
+						send_ack(gpkt);
 					}
 
 				}
@@ -1162,12 +1156,13 @@ void tcp_recv(gpacket_t *gpkt)
 
 
 		} else {
-			if ( hdr->flags & RST == 0 ) //part of 1st check (rst bit) 
+			if (hdr->flags & RST) //part of 1st check (rst bit) 
 			{
-				send_ack(gpkt);
+				free(gpkt);
+                                return;
 			}
 			else {
-				send_rst(gpkt);
+				send_ack(gpkt);
 			}
 		}
 	}
