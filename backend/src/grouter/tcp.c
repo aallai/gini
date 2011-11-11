@@ -170,7 +170,7 @@ void calc_stt(){
 int seq_to_off(uint32_t seq, uint32_t initial)
 {
 	// one sequence number used up by SYN, not in buffer
-	return (seq - initial - 1) % BUFSIZE;
+	return (seq - initial) % BUFSIZE;
 }
 
 // gets the length of the unacknowledgement space
@@ -600,7 +600,7 @@ void incoming_listen(gpacket_t *gpkt)
 		tcb.snd_nxt = tcb.iss + 1;
 		tcb.snd_una = tcb.iss;
 		tcb.snd_win = ntohs(hdr->win);
-		tcb.snd_head = tcb.iss + 1;
+		tcb.snd_head = seq_to_off(tcb.snd_nxt, tcb.iss);
 
 		uchar tmp[4];
 		COPY_IP(tcb.remote_ip, gNtohl(tmp, ip->ip_src));
@@ -672,6 +672,7 @@ void incoming_syn_sent(gpacket_t *gpkt)
 //return 1 if succeed , 0 if failed
 int tcp_send(uchar *buf, int len)
 {
+	//printf("send\n");
 	if(read_state() == CLOSED){
 		printf("error: connection must be opened\n");
 		return 0;
@@ -800,6 +801,7 @@ int tcp_resend(){
 	}
 	size = copy_una((uchar *) hdr + hdr->data_off * 4, size);
 	if(size == 0){ //don't send an empty packet
+		printf("No data to resend\n");
 		return 1;
 	}
 
