@@ -114,6 +114,7 @@ void reset_tcb_state()
 {
 	memset(&tcb, 0, sizeof(struct tcb_t));
 	set_state(CLOSED);
+	close_port(tcb.local_port, TCP_PROTOCOL);
 	pthread_mutex_init(&tcb.state_lock, NULL);
 	tcb.recv_win = DEFAULT_WINSIZE;
 	tcb.retran = 0;
@@ -865,7 +866,7 @@ void incoming_reset()
 void incoming_misplaced_syn(gpacket_t *gpkt)
 {
 	send_rst(gpkt);
-	verbose(2, "[tcp_recv]:: Connection Reset");
+	verbose(2, "[tcp_recv]:: Connection Reset\n");
 	reset_tcb_state();
 	set_state(CLOSED);
 }
@@ -921,7 +922,7 @@ void check4TimeWaitTimeOut()
 	{
 		set_state(CLOSED); 
 		reset_tcb_state();
-		verbose(2, "[tcp_recv]:: WAIT TIMEOUT");
+		verbose(2, "[tcp_recv]:: WAIT TIMEOUT\n");
 	}
 }
 
@@ -1151,8 +1152,8 @@ void tcp_recv(gpacket_t *gpkt)
 			{
 				send_fin(gpkt); 
 				set_state(LAST_ACK); 
-				printf("[tcp_recv]:: CLOSE WAIT PLEASE CLOSE CONNECTION");
-				verbose(2, "[tcp_recv]:: CLOSE WAIT PLEASE CLOSE CONNECTION");
+				printf("[tcp_recv]:: CLOSE WAIT PLEASE CLOSE CONNECTION\n");
+				verbose(2, "[tcp_recv]:: CLOSE WAIT PLEASE CLOSE CONNECTION\n");
 				return;
 			}
 
