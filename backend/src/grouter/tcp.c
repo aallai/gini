@@ -429,6 +429,7 @@ int tcp_connect(ushort local, uchar *dest_ip, ushort dest_port)
 // send a RST in response to segment gpkt
 void send_rst(gpacket_t *gpkt)
 {
+	printf("SUPER RESET\n");
 	uchar tmp[4];
 	uint16_t tmp_port;
 
@@ -872,7 +873,12 @@ void incoming_misplaced_syn(gpacket_t *gpkt)
 
 void timer_handler(){
 	if(read_state() == ESTABLISHED){
-		if(tcb.snd_una < tcb.timer_una){
+		//check if the timer is still alive
+		if(tcb.snd_una > tcb.timer_una){
+			tcb.timer_una = tcb.snd_una;
+			tcb.retran = 0;
+		} else {
+			printf("HANDLER\n");
 			if(tcb.retran == MAXDATARETRANSMISSIONS){
 				tcb.retran = 0;
 				verbose(1, "[tcp_retransmission]:: Connection INACCESSIBLE");
@@ -941,12 +947,7 @@ int process_ack(gpacket_t *gpkt)
 			tcb.snd_win = win;
 			tcb.snd_wl1 = seq;
 			tcb.snd_wl2 = ack;
-		} 
-		//check if the timer is still alive
-		if(tcb.snd_una > tcb.timer_una){
-			tcb.timer_una = tcb.snd_una;
-			tcb.retran = 0;
-		} 
+		}  
 		//send remaining packets
 		if(get_unsent_size > 0){
 			tcp_send(NULL,0);
@@ -984,12 +985,9 @@ int incoming_ack(gpacket_t *gpkt)
 
 	if ( (read_state() == ESTABLISHED) || (read_state() == CLOSE_WAIT || (read_state() == FIN_WAIT2)) ) 
 	{
-		//if(tcb.ack != 0){
+		
 			proceed = process_ack(gpkt);
-		//	tcb.ack = 1;
-		//} else {
-		//	tcb.ack = 0;
-		//}
+	
 	}
 
 	else if ( read_state() ==  FIN_WAIT1 )
@@ -1139,7 +1137,7 @@ void tcp_recv(gpacket_t *gpkt)
 					} else {
 						tcb.recv_win = DEFAULT_WINSIZE;
 						tcb.recv_nxt += tcp_data_len;
-						send_ack(gpkt);
+						//send_ack(gpkt);
 					}
 
 				}
