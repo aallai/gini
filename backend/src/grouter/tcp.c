@@ -950,6 +950,10 @@ int incoming_ack(gpacket_t *gpkt)
 
 	tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
 
+	if (read_state() == FIN_WAIT1) {
+		printf("current -> FIN_WAIT1");
+	}
+
 	if ( read_state() == SYN_RECV )
 	{
 		if (tcb.snd_una <= ntohl(hdr->ack) && ntohl(hdr->ack) <= tcb.snd_nxt)  {
@@ -1121,19 +1125,20 @@ void tcp_recv(gpacket_t *gpkt)
 				clock_gettime(CLOCK_REALTIME, &tcb.rcvtm);
 				calc_stt();	
 			}
-			else if ( read_state() == CLOSE_WAIT ) 
-			{
-				send_fin(gpkt); 
-				set_state(LAST_ACK); 
-				printf("[tcp_recv]:: CLOSE WAIT PLEASE CLOSE CONNECTION\n");
-				verbose(2, "[tcp_recv]:: CLOSE WAIT PLEASE CLOSE CONNECTION\n");
-				return;
-			}
 
 			if ( hdr->flags & FIN )
 			{
 				incoming_fin();
 			}
+
+			else if ( read_state() == CLOSE_WAIT )
+                        {
+                                send_fin(gpkt);
+                                set_state(LAST_ACK);
+                                printf("[tcp_recv]:: CLOSE WAIT PLEASE CLOSE CONNECTION\n");
+                                verbose(2, "[tcp_recv]:: CLOSE WAIT PLEASE CLOSE CONNECTION\n");
+                                return;
+                        }
 
 
 		} else {
@@ -1174,7 +1179,7 @@ int tcp_close()
 	hdr->src = htons(tcb.local_port);
 	hdr->dst = htons(tcb.remote_port);
 	hdr->data_off = 5;
-	hdr->flags = FIN | ACK;
+	hdr->flags = FIN;
 	hdr->checksum = 0;
 	hdr->reserved = 0;
 	hdr->urg = 0;
