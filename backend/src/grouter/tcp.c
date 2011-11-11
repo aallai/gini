@@ -601,8 +601,15 @@ void incoming_listen(gpacket_t *gpkt)
 		tcb.snd_head = seq_to_off(tcb.snd_nxt, tcb.iss);
 
 		uchar tmp[4];
-		COPY_IP(tcb.remote_ip, gNtohl(tmp, ip->ip_src));
-		COPY_IP(tcb.local_ip, gNtohl(tmp, ip->ip_dst));
+		COPY_IP(tcb.remote_ip, gNtohl(tmp, ip->ip_src)); // get remote ip
+
+		getsrcaddr(gpkt, gNtohl(tmp, ip->ip_src));
+		COPY_IP(tcb.local_ip, gNtohl(tmp, ip->ip_src));
+
+		// jumping through hoops because the sen_synack function expexts src and dst to be flipped
+		COPY_IP(ip->ip_src, gHtonl(tmp, tcb.remote_ip));
+		COPY_IP(ip->ip_dst, gHtonl(tmp, tcb.local_ip));
+		
 		tcb.remote_port = ntohs(hdr->src);
 
 		send_synack(gpkt);
