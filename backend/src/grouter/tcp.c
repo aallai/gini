@@ -119,6 +119,7 @@ void reset_tcb_state()
 	close_port(tcb.local_port, TCP_PROTOCOL);
 	pthread_mutex_init(&tcb.state_lock, NULL);
 	tcb.recv_win = DEFAULT_WINSIZE;
+
 	tcb.retran = 0;
 	tcb.rtt.tv_sec = 0;
         tcb.rtt.tv_nsec = 0;
@@ -144,12 +145,12 @@ void reset_tcb_state()
         if (status < 0) {
                return;
         }
-
 }
 
 void init_tcp()
 {
 	reset_tcb_state();
+
 }
 
 void calc_stt(){
@@ -877,7 +878,8 @@ void incoming_misplaced_syn(gpacket_t *gpkt)
 }
 
 void timer_handler_send_resend(){
-	if(read_state() == ESTABLISHED){
+	if(read_state() == ESTABLISHED || read_state() == CLOSE_WAIT 
+		|| read_state() == FIN_WAIT1 || read_state() == FIN_WAIT2 || read_state() == TIME_WAIT  ){
 		//check if the timer is still alive
 		if(tcb.snd_una > tcb.timer_una){
 			tcb.timer_una = tcb.snd_una;
@@ -886,44 +888,21 @@ void timer_handler_send_resend(){
 			if(tcb.retran == MAXDATARETRANSMISSIONS){
 				tcb.retran = 0;
 				verbose(1, "[tcp_retransmission]:: Connection INACCESSIBLE");
-				tcp_close();
-				return;
+				set_state(CLOSED); 
+				reset_tcb_state();
+			return;
 			} else {
-				printf("Time to resend\n");
 				tcp_resend();
 			}
 		}
-	} 
-
+	}
 }
 
 void timer_handler(){
-	if(read_state() == ESTABLISHED){
-		//check if the timer is still alive
-		if(tcb.snd_una > tcb.timer_una){
-			tcb.timer_una = tcb.snd_una;
-			tcb.retran = 0;
-		} else {
-			if(tcb.retran == MAXDATARETRANSMISSIONS){
-				tcb.retran = 0;
-				verbose(1, "[tcp_retransmission]:: Connection INACCESSIBLE");
-				tcp_close();
-				return;
-			} else {
-				printf("Time to resend\n");
-				tcp_resend();
-			}
-		}
-	} else if ( read_state() == FIN_WAIT1 ) {
-		
-	} else if ( read_state() == FIN_WAIT2 ) {
-		
-	} else if ( read_state() == TIME_WAIT ) {	
-
-	} else if(read_state() == CLOSING) {
-
-	}
-
+	if ( read_state() == TIME_WAIT ) {	
+		set_state(CLOSED); 
+		reset_tcb_state();
+	} 
 }
 
 // time in seconds, use STT for sed and resend
@@ -982,7 +961,7 @@ int process_ack(gpacket_t *gpkt)
 			tcb.snd_wl2 = ack;
 		}  
 		//send remaining packets
-		if(get_unsent_size > 0){
+		if((read_state() == ESTABLISHED || read_state() == CLOSE_WAIT) && get_unsent_size > 0){
 			tcp_send(NULL,0);
 		}  
 
@@ -998,7 +977,6 @@ int process_ack(gpacket_t *gpkt)
 
 int incoming_ack(gpacket_t *gpkt)
 {
-	printf("incoming_ack()\n");
 	int proceed = 1;
 	ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
 	uint16_t ipPacketLength = ntohs(ip->ip_pkt_len); 
@@ -1012,7 +990,6 @@ int incoming_ack(gpacket_t *gpkt)
 			set_state(ESTABLISHED);
 		} else {
 			send_rst(gpkt);
-			printf("incoming_ack() : reset\n");
 			return 0;
 		}
 	}
@@ -1026,8 +1003,7 @@ int incoming_ack(gpacket_t *gpkt)
 
 	else if ( read_state() ==  FIN_WAIT1 )
 	{
-		proceed = process_ack(gpkt);
-		printf("FIN_WAIT1 before proceed");                     
+		proceed = process_ack(gpkt);                   
 		if (proceed) {
 			set_state(FIN_WAIT2);
 		} 
@@ -1053,7 +1029,7 @@ int incoming_ack(gpacket_t *gpkt)
 	else if ( read_state() == TIME_WAIT ) 
 	{
 		send_ack(gpkt);
-		//TODO: restart timer!
+		start_timewait_timer(2*MSL);
 	}
 
 	return proceed;					
@@ -1069,17 +1045,17 @@ void incoming_fin()
 	else if ( read_state() == FIN_WAIT1 ) 
 	{
 		// ENTER CLOSING STATE IF NOT ACKED...WONT HAPPEN
-		start_timewait_timer(0);//TODO: figure out what time goes here
+		start_timewait_timer(MSL);
 		set_state(TIME_WAIT);
 	}
 	else if ( read_state() == FIN_WAIT2 ) 
 	{
-		start_timewait_timer(0);//TODO: figure out what time goes here
+		start_timewait_timer(MSL);
 		set_state(TIME_WAIT);
 	}
 	else if ( read_state() == TIME_WAIT ) 
-	{	//TODO: figure out what time goes here
-		start_timewait_timer(0);
+	{	
+		start_timewait_timer(2*MSL);
 	}
 }
 
@@ -1148,7 +1124,6 @@ void tcp_recv(gpacket_t *gpkt)
 			
 			if( hdr->ack !=0)
 			{
-				printf("Ack field is ok \n");
 				if (hdr->flags & ACK == 0) 
 				{ // part of 5th check (ACK bit) 
 					free(gpkt);
