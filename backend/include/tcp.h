@@ -19,6 +19,8 @@
 #define BETA 2.0
 #define MAXDATARETRANSMISSIONS 5
 
+#define MSL 120
+
 #define TCP_HEADER_SIZE 20
 
 // header
