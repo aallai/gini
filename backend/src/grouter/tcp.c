@@ -23,12 +23,6 @@ void timer_handler();
  * might need to put this in a struct later, since all this needs to be reset
  * for every new connection **/
 
-struct tcp_timer {
-	timer_t tid;
-        struct sigevent sev;
-	
-}
-
 struct tcb_t {
 
 	int state;                // the actual connection state
@@ -116,11 +110,6 @@ void print_tcp_packet(gpacket_t *gpkt)
 	printf("\n");
 }
 
-void set_timer(int ms)
-{
-
-}
-
 void reset_tcb_state()
 {
 	memset(&tcb, 0, sizeof(struct tcb_t));
@@ -180,7 +169,7 @@ void calc_stt(){
 // converts seq from sequence space to buffer space using intial as initial sequence number
 int seq_to_off(uint32_t seq, uint32_t initial)
 {
-	// one sequence number used up by SYN, not in buffer
+	// one sequence number used up by SYN, not in buffer, we account for this elsewhere
 	return (seq - initial) % BUFSIZE;
 }
 
