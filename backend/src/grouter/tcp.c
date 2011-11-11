@@ -73,45 +73,6 @@ struct tcb_t {
 
 } tcb;
 
-
-void print_tcp_packet(gpacket_t *gpkt)
-{
-	ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
-	uint16_t ipPacketLength = ntohs(ip->ip_pkt_len); 
-
-	tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
-	uint16_t tcp_data_len = ipPacketLength - ip->ip_hdr_len * 4 - hdr->data_off * 4; 
-
-	char *data = (char*) hdr + hdr->data_off * 4;
-	printf("\n");
-	printf("Print Packet");
-	if (hdr->flags & FIN) 
-	{
-		printf("Flag: FIN\n");
-	}
-	if (hdr->flags & SYN) 
-	{
-		printf("Flag: SYN\n");
-	}
-	if (hdr->flags & RST) 
-	{
-		printf("Flag: RST\n");
-	}
-	if (hdr->flags & PSH) 
-	{
-		printf("Flag: PSH\n");
-	}
-	if (hdr->flags & ACK) 
-	{
-		printf("Flag: ACK\n");
-	}
-	if (hdr->flags & URG) 
-	{
-		printf("Flag: URG\n");
-	}
-	printf("\n");
-}
-
 void reset_tcb_state()
 {
 	memset(&tcb, 0, sizeof(struct tcb_t));
@@ -548,7 +509,6 @@ void send_fin(gpacket_t *gpkt)
 	hdr->src = hdr->dst;
 	hdr->dst = tmp_port;
 	hdr->ack = 0;
-	printf("check: ack: ack: %lo \n",tcb.recv_nxt );
 	hdr->ack = htonl(tcb.recv_nxt);
 	hdr->seq = htonl(tcb.snd_nxt);	
 	hdr->data_off = 5;
