@@ -61,7 +61,6 @@ struct tcb_t {
 
 	// for timeout
 	int retran;		// the number of the retransmission
-	int exit;		// to know which timer we need: retransmission or exit
 	timer_t timer;		//self explanatory
  	struct itimerspec itime;	// gives the interval and the time to wait
 	struct sigevent event;		// to create a new thread
@@ -128,7 +127,6 @@ void reset_tcb_state()
 	set_state(CLOSED);
 	pthread_mutex_init(&tcb.state_lock, NULL);
 	tcb.recv_win = DEFAULT_WINSIZE;
-	tcb.exit  = -1;
 	tcb.retran = 0;
 	tcb.rtt.tv_sec = 0;
         tcb.rtt.tv_nsec = 0;
@@ -882,7 +880,7 @@ void incoming_misplaced_syn(gpacket_t *gpkt)
 }
 
 void timer_handler(){
-	if(tcb.exit < 0){
+	if(read_state() == ESTABLISHED){
 		if(tcb.snd_una < tcb.timer_una){
 			if(tcb.retran == MAXDATARETRANSMISSIONS){
 				tcb.retran = 0;
@@ -890,14 +888,18 @@ void timer_handler(){
 				tcp_close();
 				return;
 			} else {
-				timer_delete(tcb.timer);
 				printf("Time to resend\n");
 				tcp_resend();
 			}
 		}
-	} else {
-		printf("Time to do something to quit\n");
-		return;
+	} else if ( read_state() == FIN_WAIT1 ) {
+		
+	} else if ( read_state() == FIN_WAIT2 ) {
+		
+	} else if ( read_state() == TIME_WAIT ) {	
+
+	} else if(read_state() == CLOSING) {
+
 	}
 
 }
