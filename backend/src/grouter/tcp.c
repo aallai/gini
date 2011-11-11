@@ -1156,14 +1156,8 @@ void tcp_recv(gpacket_t *gpkt)
 				return;
 			}
 			
-			if( hdr->ack !=0)
+			if( hdr->flags & ACK)
 			{
-				printf("Ack field is ok \n");
-				if (hdr->flags & ACK == 0) 
-				{ // part of 5th check (ACK bit) 
-					free(gpkt);
-					return;		
-				}
 				if( incoming_ack(gpkt) == 0)
 				{ 
 					return;
