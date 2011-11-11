@@ -14,6 +14,11 @@
 #define URG 0x20
 #define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 
+#define NSECS_PER_SEC 1000000000
+#define ALPHA 0.8
+#define BETA 2.0
+#define MAXDATARETRANSMISSIONS 5
+
 #define TCP_HEADER_SIZE 20
 
 // header
