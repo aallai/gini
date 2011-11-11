@@ -43,6 +43,7 @@ grouter_src = Split ("""grouter.c
 grouter_libs = Split ("""readline
                          termcap
                          slack
+			 rt
                          pthread
                          util
                          m""")
