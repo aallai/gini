@@ -13,7 +13,7 @@
 #include <signal.h>
 #include <unistd.h>
 
-
+int pkt_count = 0;
 
 void set_state(int);
 void timer_handler();
@@ -1063,7 +1063,7 @@ void tcp_recv(gpacket_t *gpkt)
 
 	uint8_t *data = (uint8_t *) hdr + hdr->data_off * 4;
 	
-	
+	pkt_count++;	
 
 	// je suis le rfc, derniere section qui explique etape par etape
 
@@ -1139,7 +1139,10 @@ void tcp_recv(gpacket_t *gpkt)
 					} else {
 						tcb.recv_win = DEFAULT_WINSIZE;
 						tcb.recv_nxt += tcp_data_len;
-						send_ack(gpkt);
+					
+						if (pkt_count != 5) {
+							send_ack(gpkt);
+						}
 					}
 
 				}
@@ -1164,12 +1167,13 @@ void tcp_recv(gpacket_t *gpkt)
 
 
 		} else {
-			if ( hdr->flags & RST == 0 ) //part of 1st check (rst bit) 
+			if (hdr->flags & RST) //part of 1st check (rst bit) 
 			{
-				send_ack(gpkt);
+				free(gpkt);
+                                return;
 			}
 			else {
-				send_rst(gpkt);
+				send_ack(gpkt);
 			}
 		}
 	}
