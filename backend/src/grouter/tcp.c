@@ -112,6 +112,7 @@ void reset_tcb_state()
 {
 	memset(&tcb, 0, sizeof(struct tcb_t));
 	set_state(CLOSED);
+	close_port(tcb.local_port, TCP_PROTOCOL);
 	pthread_mutex_init(&tcb.state_lock, NULL);
 	tcb.recv_win = DEFAULT_WINSIZE;
 	tcb.retran = 0;
@@ -267,47 +268,47 @@ int read_state()
 
 void print_state(int state) 
 {
-	if ( state == 1 ) 
+	if ( state == ESTABLISHED ) 
 	{
 		printf("state->ESTABLISHED\n");
 	}
-	else if ( state == 2 ) 
+	else if ( state == SYN_SENT ) 
 	{
 		printf("state->SYN_SENT\n");
 	}
-	else if ( state == 3 ) 
+	else if ( state == SYN_RECV ) 
 	{
 		printf("state->SYN_RECV\n");
 	}
-	else if ( state == 4 ) 
+	else if ( state == FIN_WAIT1) 
 	{
 		printf("state->FIN_WAIT1\n");
 	}
-	else if ( state == 5 ) 
+	else if ( state == FIN_WAIT2 ) 
 	{
 		printf("state->FIN_WAIT2\n");
 	}
- 	else if ( state == 6 ) 
+ 	else if ( state == TIME_WAIT ) 
 	{
 		printf("state->TIME_WAIT\n");
 	}
- 	else if ( state == 7 ) 
+ 	else if ( state == CLOSED ) 
 	{
 		printf("state->CLOSED\n");
 	}
- 	else if ( state == 8 ) 
+ 	else if ( state == CLOSE_WAIT) 
 	{
 		printf("state->CLOSE_WAIT\n");
 	}
-	else if ( state == 9 ) 
+	else if ( state == LAST_ACK ) 
 	{
 		printf("state->LAST_ACK\n");
 	}
- 	else if ( state == 10 ) 
+ 	else if ( state == LISTEN ) 
 	{
 		printf("state->LISTEN\n");
 	}
- 	else if ( state == 11 ) 
+ 	else if ( state == CLOSING ) 
 	{
 		printf("state->CLOSING\n");
 	}
@@ -501,8 +502,6 @@ void send_ack(gpacket_t *gpkt)
 	ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
 	tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);	
 
-
-
 	hdr->flags = ACK;
 	tmp_port = hdr->src;
 	hdr->src = hdr->dst;
@@ -538,6 +537,8 @@ void send_fin(gpacket_t *gpkt)
 	tmp_port = hdr->src;
 	hdr->src = hdr->dst;
 	hdr->dst = tmp_port;
+	hdr->ack = 0;
+	printf("check: ack: ack: %lo \n",tcb.recv_nxt );
 	hdr->ack = htonl(tcb.recv_nxt);
 	hdr->seq = htonl(tcb.snd_nxt);	
 	hdr->data_off = 5;
@@ -861,7 +862,7 @@ void incoming_reset()
 void incoming_misplaced_syn(gpacket_t *gpkt)
 {
 	send_rst(gpkt);
-	verbose(2, "[tcp_recv]:: Connection Reset");
+	verbose(2, "[tcp_recv]:: Connection Reset\n");
 	reset_tcb_state();
 	set_state(CLOSED);
 }
@@ -921,7 +922,7 @@ void check4TimeWaitTimeOut()
 	{
 		set_state(CLOSED); 
 		reset_tcb_state();
-		verbose(2, "[tcp_recv]:: WAIT TIMEOUT");
+		verbose(2, "[tcp_recv]:: WAIT TIMEOUT\n");
 	}
 }
 
@@ -959,6 +960,7 @@ int process_ack(gpacket_t *gpkt)
 
 int incoming_ack(gpacket_t *gpkt)
 {
+	printf("incoming_ack()\n");
 	int proceed = 1;
 	ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
 	uint16_t ipPacketLength = ntohs(ip->ip_pkt_len); 
@@ -986,7 +988,8 @@ int incoming_ack(gpacket_t *gpkt)
 
 	else if ( read_state() ==  FIN_WAIT1 )
 	{
-		proceed = process_ack(gpkt);                     
+		proceed = process_ack(gpkt);
+		printf("FIN_WAIT1 before proceed");                     
 		if (proceed) {
 			set_state(FIN_WAIT2);
 		} 
@@ -1108,6 +1111,7 @@ void tcp_recv(gpacket_t *gpkt)
 			
 			if( hdr->ack !=0)
 			{
+				printf("Ack field is ok \n");
 				if (hdr->flags & ACK == 0) 
 				{ // part of 5th check (ACK bit) 
 					free(gpkt);
@@ -1143,14 +1147,13 @@ void tcp_recv(gpacket_t *gpkt)
 			{
 				send_fin(gpkt); 
 				set_state(LAST_ACK); 
-				printf("[tcp_recv]:: CLOSE WAIT PLEASE CLOSE CONNECTION");
-				verbose(2, "[tcp_recv]:: CLOSE WAIT PLEASE CLOSE CONNECTION");
+				printf("[tcp_recv]:: CLOSE WAIT PLEASE CLOSE CONNECTION\n");
+				verbose(2, "[tcp_recv]:: CLOSE WAIT PLEASE CLOSE CONNECTION\n");
 				return;
 			}
 
 			if ( hdr->flags & FIN )
 			{
-				
 				incoming_fin();
 			}
 
@@ -1171,6 +1174,44 @@ void tcp_recv(gpacket_t *gpkt)
 
 int tcp_close()
 {
-	// must keep receiving until remote end also closes
+	gpacket_t *gpkt = (gpacket_t *) calloc(1, sizeof(gpacket_t));
+
+	if (gpkt == NULL)
+ 	{			
+		printf("error: gpkt not allocated\n");
+		return 0;
+	}
+
+	ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
+	ip->ip_hdr_len = 5;
+
+	tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
+
+	uchar tmpbuf[4] = {0};
+	COPY_IP(ip->ip_dst, gHtonl(tmpbuf, tcb.remote_ip));
+	COPY_IP(ip->ip_src, gHtonl(tmpbuf, tcb.local_ip));
+
+	hdr->ack = htonl(tcb.recv_nxt);
+	hdr->seq = htonl(tcb.snd_nxt);
+	hdr->src = htons(tcb.local_port);
+	hdr->dst = htons(tcb.remote_port);
+	hdr->data_off = 5;
+	hdr->flags = FIN | ACK;
+	hdr->checksum = 0;
+	hdr->reserved = 0;
+	hdr->urg = 0;
+	hdr->win = htons(tcb.recv_win);
+
+	hdr->checksum = htons(tcp_checksum(ip->ip_src, ip->ip_dst, hdr, 0));
+
+	if (hdr->checksum == 0) 
+	{
+		hdr->checksum = ~hdr->checksum;
+	}
+
+	IPOutgoingPacket(gpkt, gNtohl(tmpbuf, ip->ip_dst), hdr->data_off * 4 + 0, 1, TCP_PROTOCOL);	
+
+	set_state(FIN_WAIT1);
+	
 	return 0;
 }
