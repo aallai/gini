@@ -37,7 +37,6 @@ struct tcb_t {
 	uint16_t local_port;
 	uchar remote_ip[4];
 	uint16_t remote_port;
-	
 
 	// for send
 	unsigned long snd_nxt;    // next
@@ -855,7 +854,6 @@ void timer_handler_send_resend(){
 			if(tcb.retran == MAXDATARETRANSMISSIONS){
 				tcb.retran = 0;
 				verbose(1, "[tcp_retransmission]:: Connection INACCESSIBLE");
-				set_state(CLOSED); 
 				reset_tcb_state();
 			return;
 			} else {
@@ -867,7 +865,6 @@ void timer_handler_send_resend(){
 
 void timer_handler(){
 	if ( read_state() == TIME_WAIT ) {	
-		set_state(CLOSED); 
 		reset_tcb_state();
 	} 
 }
@@ -928,7 +925,7 @@ int process_ack(gpacket_t *gpkt)
 			tcb.snd_wl2 = ack;
 		}  
 		//send remaining packets
-		if((read_state() == ESTABLISHED || read_state() == CLOSE_WAIT) && get_unsent_size > 0){
+		if(get_unsent_size() > 0){
 			tcp_send(NULL,0);
 		}  
 
@@ -949,10 +946,6 @@ int incoming_ack(gpacket_t *gpkt)
 	uint16_t ipPacketLength = ntohs(ip->ip_pkt_len); 
 
 	tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);
-
-	if (read_state() == FIN_WAIT1) {
-		printf("current -> FIN_WAIT1");
-	}
 
 	if ( read_state() == SYN_RECV )
 	{
@@ -993,7 +986,6 @@ int incoming_ack(gpacket_t *gpkt)
 
 		if (proceed) {
 			reset_tcb_state();
-			set_state(CLOSED);
 			proceed = 0;
 		}
 	}
@@ -1142,13 +1134,14 @@ void tcp_recv(gpacket_t *gpkt)
                                 	send_fin(gpkt);
 					ackit = 0;
 					tcb.snd_nxt++;
+					tcb.snd_head++;
 	                                set_state(LAST_ACK);
 				}
                         }
 
 			if (ackit) {
 				send_ack(gpkt);
-			}
+			} 
 
 
 		} else {
@@ -1167,6 +1160,26 @@ void tcp_recv(gpacket_t *gpkt)
 
 int tcp_close()
 {
+	int state = read_state();
+
+	if (state == CLOSED || state == SYN_SENT || state == LISTEN) {
+		reset_tcb_state();
+		return;
+	}
+
+	if (state == FIN_WAIT1 || state == FIN_WAIT2 || state == CLOSING || state == LAST_ACK || state == TIME_WAIT) {
+		printf("tcp_close() : Illegal state.\n");
+		return;
+	}
+
+	// busy wait until all data sent has benn acked... we should have another thread empty the send buffer...
+	while (!(tcb.snd_una == tcb.snd_nxt && get_unsent_size() == 0)) {
+		usleep(ALL_DATA_ACKED_WAIT);
+		if(read_state() == CLOSED) {
+			return 0;
+		}	
+	}
+
 	gpacket_t *gpkt = (gpacket_t *) calloc(1, sizeof(gpacket_t));
 
 	if (gpkt == NULL)
@@ -1189,7 +1202,7 @@ int tcp_close()
 	hdr->src = htons(tcb.local_port);
 	hdr->dst = htons(tcb.remote_port);
 	hdr->data_off = 5;
-	hdr->flags = FIN;
+	hdr->flags = FIN | ACK;
 	hdr->checksum = 0;
 	hdr->reserved = 0;
 	hdr->urg = 0;
@@ -1205,7 +1218,9 @@ int tcp_close()
 	IPOutgoingPacket(gpkt, gNtohl(tmpbuf, ip->ip_dst), hdr->data_off * 4 + 0, 1, TCP_PROTOCOL);	
 
 	tcb.snd_nxt++;
+	tcb.snd_head++;
+
 	set_state(FIN_WAIT1);
 	
-	return 0;
+	return 1;
 }

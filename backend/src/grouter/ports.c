@@ -125,6 +125,9 @@ int open_port(int port, int proto)
 	int flags = fcntl(p->pipe[1], F_GETFL);
 	fcntl(p->pipe[1], F_SETFL, flags | O_NONBLOCK);
 
+	flags = fcntl(p->pipe[0], F_GETFL);
+	fcntl(p->pipe[0], F_SETFL, flags | O_NONBLOCK);
+
 	if (!add(port, proto, p)) {
 		port_free(p);
 		return 0;

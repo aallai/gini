@@ -19,7 +19,8 @@
 #define BETA 2.0
 #define MAXDATARETRANSMISSIONS 5
 
-#define MSL 120
+#define MSL 30
+#define ALL_DATA_ACKED_WAIT 10000 // in usecs
 
 #define TCP_HEADER_SIZE 20
 

@@ -40,6 +40,7 @@
 #include <readline/history.h>
 #include "tcp.h"
 #include "unistd.h"
+#include <errno.h>
 
 Map *cli_map;
 Mapper *cli_mapper;
@@ -936,7 +937,9 @@ void tcp_nc()
 			printf("R: ");
 		
 			if (grecv(port, TCP_PROTOCOL, data, DEFAULT_MTU - 1) == -1) {
-				printf("Error reading from port %s\n", tok);
+				if (errno != EAGAIN) {
+					printf("Error reading from port %s\n", tok);
+				}
 			}
 
 			printf("%s", data);
@@ -949,6 +952,10 @@ void tcp_nc()
 				tcp_close();
 				return;
 			}
+
+			if (read_state() == CLOSED) {
+                                return;
+                        }
 
 			if (!tcp_send(data, strlen(data))) {
 				printf("Connection shutting down!\n");
@@ -1011,8 +1018,14 @@ void tcp_nc()
                         memset(data, 0, DEFAULT_MTU);
                         printf("R: ");
 
+			if (read_state() == CLOSED) {
+                                return;
+                        }
+		
                         if (grecv(l_port, TCP_PROTOCOL, data, DEFAULT_MTU - 1) == -1) {
-                                printf("Error reading from port %s\n", tok);
+                                if (errno != EAGAIN) {
+					printf("Error reading from port %s\n", tok);
+				}
                         }
 
                         printf("%s", data);
