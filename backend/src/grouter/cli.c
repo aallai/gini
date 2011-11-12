@@ -950,7 +950,10 @@ void tcp_nc()
 				return;
 			}
 
-			tcp_send(data, strlen(data));
+			if (!tcp_send(data, strlen(data))) {
+				printf("Connection shutting down!\n");
+				return;
+			}
 		}
 	} else {     // connect
 
@@ -986,6 +989,9 @@ void tcp_nc()
 
 		while (1) {
 
+			if (read_state() == CLOSED) {
+				return;
+			}
 			
 			memset(data, 0, DEFAULT_MTU);
                         printf("L: ");
@@ -996,7 +1002,10 @@ void tcp_nc()
                                 return;
                         }
 
-                        tcp_send(data, strlen(data));
+                        if (!tcp_send(data, strlen(data))) {
+				printf("Connection shutting down.\n");
+				return;
+			}
 					
 			
                         memset(data, 0, DEFAULT_MTU);

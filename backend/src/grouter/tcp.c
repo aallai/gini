@@ -504,7 +504,7 @@ void send_fin(gpacket_t *gpkt)
 	ip_packet_t *ip = (ip_packet_t *) gpkt->data.data;
 	tcphdr_t *hdr = (tcphdr_t *) ((uchar *) ip + ip->ip_hdr_len * 4);	
 
-	hdr->flags = FIN;
+	hdr->flags = FIN | ACK;
 	tmp_port = hdr->src;
 	hdr->src = hdr->dst;
 	hdr->dst = tmp_port;
@@ -1009,6 +1009,8 @@ int incoming_ack(gpacket_t *gpkt)
 
 void incoming_fin() 
 {
+	tcb.recv_nxt++;
+
 	if ( (read_state() == SYN_RECV) || (read_state() == ESTABLISHED) )
 	{
 		set_state(CLOSE_WAIT);
@@ -1016,8 +1018,12 @@ void incoming_fin()
 	else if ( read_state() == FIN_WAIT1 ) 
 	{
 		// ENTER CLOSING STATE IF NOT ACKED...WONT HAPPEN
-		start_timewait_timer(MSL);
-		set_state(TIME_WAIT);
+		if (tcb.snd_una == tcb.snd_nxt) {
+			start_timewait_timer(MSL);
+			set_state(TIME_WAIT);
+		} else {
+			set_state(CLOSING);
+		}
 	}
 	else if ( read_state() == FIN_WAIT2 ) 
 	{
@@ -1081,6 +1087,9 @@ void tcp_recv(gpacket_t *gpkt)
 
 		if (packet_acceptable == 1)
 		{
+
+			int ackit = 0;
+
 			if ( hdr->flags & RST ) //2nd check (rst_bit) 
 			{
 				incoming_reset();
@@ -1112,28 +1121,34 @@ void tcp_recv(gpacket_t *gpkt)
 					} else {
 						tcb.recv_win = DEFAULT_WINSIZE;
 						tcb.recv_nxt += tcp_data_len;
-						send_ack(gpkt);
+						ackit = 1;
 					}
 
 				}
 				//Calculate the round trip time
 				clock_gettime(CLOCK_REALTIME, &tcb.rcvtm);
-				calc_stt();	
+				calc_stt();
 			}
 
-			if ( hdr->flags & FIN )
+			if( hdr->flags & FIN )
 			{
 				incoming_fin();
+				ackit = 1;
 			}
 
-			else if ( read_state() == CLOSE_WAIT )
+			if ( read_state() == CLOSE_WAIT )
                         {
-                                send_fin(gpkt);
-                                set_state(LAST_ACK);
-                                printf("[tcp_recv]:: CLOSE WAIT PLEASE CLOSE CONNECTION\n");
-                                verbose(2, "[tcp_recv]:: CLOSE WAIT PLEASE CLOSE CONNECTION\n");
-                                return;
+				if (tcb.snd_una == tcb.snd_nxt && get_unsent_size() == 0) {
+                                	send_fin(gpkt);
+					ackit = 0;
+					tcb.snd_nxt++;
+	                                set_state(LAST_ACK);
+				}
                         }
+
+			if (ackit) {
+				send_ack(gpkt);
+			}
 
 
 		} else {
@@ -1189,6 +1204,7 @@ int tcp_close()
 
 	IPOutgoingPacket(gpkt, gNtohl(tmpbuf, ip->ip_dst), hdr->data_off * 4 + 0, 1, TCP_PROTOCOL);	
 
+	tcb.snd_nxt++;
 	set_state(FIN_WAIT1);
 	
 	return 0;
