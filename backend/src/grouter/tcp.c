@@ -67,6 +67,7 @@ struct tcb_t {
 	struct itimerspec itime_wait;	// gives the interval and the time to wait
 	struct sigevent event_wait;	
 
+	// send buffer
 	int snd_head;
 	uchar snd_buf[BUFSIZE];
 
@@ -74,9 +75,9 @@ struct tcb_t {
 
 void reset_tcb_state()
 {
+	close_port(tcb.local_port, TCP_PROTOCOL);
 	memset(&tcb, 0, sizeof(struct tcb_t));
 	set_state(CLOSED);
-	close_port(tcb.local_port, TCP_PROTOCOL);
 	pthread_mutex_init(&tcb.state_lock, NULL);
 	tcb.recv_win = DEFAULT_WINSIZE;
 

@@ -929,20 +929,15 @@ void tcp_nc()
 
 		while (1) {
 
-			if (read_state() == CLOSED) {
-				return;
-			}
-
 			memset(data, 0, DEFAULT_MTU);
-			printf("R: ");
-		
+
 			if (grecv(port, TCP_PROTOCOL, data, DEFAULT_MTU - 1) == -1) {
 				if (errno != EAGAIN) {
 					printf("Error reading from port %s\n", tok);
 				}
+			} else {
+				printf("R: %s", data);
 			}
-
-			printf("%s", data);
 
 			memset(data, 0, DEFAULT_MTU);
 			printf("L: ");
@@ -954,6 +949,7 @@ void tcp_nc()
 			}
 
 			if (read_state() == CLOSED) {
+				printf("Connection shutting down.\n");
                                 return;
                         }
 
@@ -996,16 +992,17 @@ void tcp_nc()
 
 		while (1) {
 
-			if (read_state() == CLOSED) {
-				return;
-			}
-			
 			memset(data, 0, DEFAULT_MTU);
                         printf("L: ");
                         fgets(data, DEFAULT_MTU, stdin);
 
                         if(*data == 'Q' && strlen(data) == 2) {
 				tcp_close();
+                                return;
+                        }
+
+			if (read_state() == CLOSED) {
+				printf("Connection shutting down.\n");
                                 return;
                         }
 
@@ -1016,19 +1013,14 @@ void tcp_nc()
 					
 			
                         memset(data, 0, DEFAULT_MTU);
-                        printf("R: ");
-
-			if (read_state() == CLOSED) {
-                                return;
-                        }
 		
                         if (grecv(l_port, TCP_PROTOCOL, data, DEFAULT_MTU - 1) == -1) {
                                 if (errno != EAGAIN) {
 					printf("Error reading from port %s\n", tok);
 				}
-                        }
-
-                        printf("%s", data);
+                        } else {
+                        	printf("R: %s", data);
+			}
                 }
 	}	
 }

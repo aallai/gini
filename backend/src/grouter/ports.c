@@ -102,6 +102,7 @@ int open_port(int port, int proto)
 
 	// port already exists or isnt in valid range? fail
 	if (port_open(port, proto) || !(port >= PORT_MIN && port <= PORT_MAX) ) {
+		printf("Port is open\n");
 		return 0;
 	}	
 
@@ -129,6 +130,9 @@ int open_port(int port, int proto)
 	fcntl(p->pipe[0], F_SETFL, flags | O_NONBLOCK);
 
 	if (!add(port, proto, p)) {
+
+		printf("add failed\n");
+
 		port_free(p);
 		return 0;
 	}
